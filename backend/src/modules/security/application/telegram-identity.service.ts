@@ -28,7 +28,8 @@ import {
   TelegramAlreadyLinkedError,
   TelegramIdentityNotFoundError,
 } from '../domain/errors/security.errors';
-import { TelegramRegistrationRequestBridgeService } from '../../request/application/telegram-registration-request-bridge.service';
+import type { TelegramRegistrationRequestBridgeService } from '../../request/application/telegram-registration-request-bridge.service';
+import { TELEGRAM_REGISTRATION_REQUEST_BRIDGE } from '../../request/application/telegram-registration-request-bridge.token';
 import { OperatorTelegramInviteService } from '../../permission/application/operator-telegram-invite.service';
 
 export interface VerifyEmployeeInput {
@@ -54,7 +55,7 @@ export class TelegramIdentityService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    @Optional() @Inject(forwardRef(() => TelegramRegistrationRequestBridgeService))
+    @Optional() @Inject(TELEGRAM_REGISTRATION_REQUEST_BRIDGE)
     private readonly registrationBridge?: TelegramRegistrationRequestBridgeService,
     @Optional() private readonly operatorInvites?: OperatorTelegramInviteService,
   ) {}

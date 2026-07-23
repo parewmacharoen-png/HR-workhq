@@ -35,6 +35,7 @@ import { EmployeeReferralTelegramHandler } from '../telegram/application/employe
 import { TelegramFormUxService } from '../telegram/application/telegram-form-ux.service';
 import { FormUxAuditService } from '../telegram/application/form-ux-audit.service';
 import { TelegramRegistrationRequestBridgeService } from './application/telegram-registration-request-bridge.service';
+import { TELEGRAM_REGISTRATION_REQUEST_BRIDGE } from './application/telegram-registration-request-bridge.token';
 import { RequestDraftExpiryService } from './application/request-draft-expiry.service';
 import { RequestDraftExpiryScheduler } from './application/request-draft-expiry.scheduler';
 import { RequestAttendanceGuardService } from './application/request-attendance-guard.service';
@@ -76,6 +77,10 @@ import { RequestAttendanceGuardService } from './application/request-attendance-
     TelegramFormUxService,
     FormUxAuditService,
     TelegramRegistrationRequestBridgeService,
+    {
+      provide: TELEGRAM_REGISTRATION_REQUEST_BRIDGE,
+      useExisting: TelegramRegistrationRequestBridgeService,
+    },
     RequestDraftExpiryService,
     RequestDraftExpiryScheduler,
     RequestAttendanceGuardService,
@@ -91,6 +96,7 @@ import { RequestAttendanceGuardService } from './application/request-attendance-
     WorkflowBuilderService,
     ApprovalFlowBuilderService,
     TelegramRegistrationRequestBridgeService,
+    TELEGRAM_REGISTRATION_REQUEST_BRIDGE,
   ],
 })
 export class RequestModule {}

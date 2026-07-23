@@ -22,7 +22,8 @@ import {
 } from '../domain/self-onboarding.types';
 import { DOCUMENT_STORAGE, DocumentStorageService } from '../../../shared/storage/document-storage.interface';
 import { SelfOnboardingTelegramNotifier } from '../../telegram/application/self-onboarding.notifier';
-import { TelegramRegistrationRequestBridgeService } from '../../request/application/telegram-registration-request-bridge.service';
+import type { TelegramRegistrationRequestBridgeService } from '../../request/application/telegram-registration-request-bridge.service';
+import { TELEGRAM_REGISTRATION_REQUEST_BRIDGE } from '../../request/application/telegram-registration-request-bridge.token';
 import { EmployeeOnboardingTimelineService } from './employee-onboarding-timeline.service';
 import { reconcileStaleDraftSubmissions } from '../domain/onboarding-reconcile.util';
 import { resolveTelegramConnectionStatus } from '../domain/telegram-connection-status.util';
@@ -49,7 +50,7 @@ export class EmployeeSelfOnboardingService {
     @Inject(forwardRef(() => SelfOnboardingTelegramNotifier))
     private readonly telegram?: SelfOnboardingTelegramNotifier,
     @Optional()
-    @Inject(forwardRef(() => TelegramRegistrationRequestBridgeService))
+    @Inject(TELEGRAM_REGISTRATION_REQUEST_BRIDGE)
     private readonly registrationBridge?: TelegramRegistrationRequestBridgeService,
     @Optional()
     private readonly onboardingTimeline?: EmployeeOnboardingTimelineService,

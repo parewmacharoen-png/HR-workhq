@@ -21,6 +21,7 @@ import { EmployeeOnboardingDashboardService } from './application/employee-onboa
 import { TelegramSelfOnboardingHrHandler } from './application/telegram-self-onboarding-hr.handler';
 import { EmployeeOnboardingTimelineService } from './application/employee-onboarding-timeline.service';
 import { EmployeeOnboardingApprovalService } from './application/employee-onboarding-approval.service';
+import { EMPLOYEE_ONBOARDING_APPROVAL } from './application/employee-onboarding-approval.token';
 import { OnboardingInviteAccessService } from './application/onboarding-invite-access.service';
 
 @Module({
@@ -45,6 +46,10 @@ import { OnboardingInviteAccessService } from './application/onboarding-invite-a
     TelegramSelfOnboardingHrHandler,
     EmployeeOnboardingTimelineService,
     EmployeeOnboardingApprovalService,
+    {
+      provide: EMPLOYEE_ONBOARDING_APPROVAL,
+      useExisting: EmployeeOnboardingApprovalService,
+    },
     OnboardingInviteAccessService,
   ],
   exports: [
@@ -56,6 +61,7 @@ import { OnboardingInviteAccessService } from './application/onboarding-invite-a
     TelegramSelfOnboardingHrHandler,
     EmployeeOnboardingTimelineService,
     EmployeeOnboardingApprovalService,
+    EMPLOYEE_ONBOARDING_APPROVAL,
     OnboardingInviteAccessService,
   ],
 })

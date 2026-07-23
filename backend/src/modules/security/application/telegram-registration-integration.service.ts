@@ -2,14 +2,15 @@
 // Approve/reject employee onboarding requests → link Telegram + apply preset
 // ============================================================================
 
-import { Inject, Injectable, Optional, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ActorContext } from '../../../shared/kernel/actor-context';
-import { EmployeeOnboardingApprovalService } from '../../employee-onboarding/application/employee-onboarding-approval.service';
+import type { EmployeeOnboardingApprovalService } from '../../employee-onboarding/application/employee-onboarding-approval.service';
+import { EMPLOYEE_ONBOARDING_APPROVAL } from '../../employee-onboarding/application/employee-onboarding-approval.token';
 
 @Injectable()
 export class TelegramRegistrationIntegrationService {
   constructor(
-    @Optional() @Inject(forwardRef(() => EmployeeOnboardingApprovalService))
+    @Optional() @Inject(EMPLOYEE_ONBOARDING_APPROVAL)
     private readonly onboardingApproval?: EmployeeOnboardingApprovalService,
   ) {}
 
