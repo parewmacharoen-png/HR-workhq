@@ -1,0 +1,67 @@
+# WorkHQ — Render Blueprint
+# Deploy: https://dashboard.render.com/blueprints → New → connect HR-workhq
+#
+# Free-tier note: one always-on free web service. Web is a Static Site that
+# talks to the API URL (set WORKHQ_API_ORIGIN after first deploy).
+
+services:
+  - type: web
+    name: workhq-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: workhq-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: workhq-redis
+          type: keyvalue
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: METRICS_TOKEN
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL
+        sync: false
+      - key: WORKHQ_WEB_URL
+        sync: false
+
+  - type: web
+    name: workhq-web
+    runtime: static
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: web/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE
+        sync: false
+
+  - type: keyvalue
+    name: workhq-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+databases:
+  - name: workhq-db
+    plan: free
+    databaseName: workhq
+    user: workhq
