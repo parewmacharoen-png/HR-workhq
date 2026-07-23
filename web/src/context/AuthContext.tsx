@@ -4,6 +4,7 @@ import {
   clearToken,
   fetchCompanies,
   fetchMe,
+  getAuthToken,
   getCompanyId,
   login as apiLogin,
   setCompanyId,
@@ -44,6 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError('');
     try {
+      if (!getAuthToken()) {
+        setUser(null);
+        return;
+      }
       const me = await fetchMe();
       setUser(me);
       const hasAllScope = userHasGlobalCompanyScope(me);

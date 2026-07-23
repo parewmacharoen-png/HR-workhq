@@ -1,7 +1,13 @@
 # WorkHQ — Render Blueprint (free-tier compatible)
-# - Do not set region on existing services (cannot change after create)
-# - Static sites: no plan / no region
-# - Free web: no preDeployCommand
+#
+# IMPORTANT: Render free Postgres does NOT include pgvector.
+# Set DATABASE_URL to Neon (or Supabase) with pgvector enabled:
+#   1. https://console.neon.tech → New Project
+#   2. SQL Editor: CREATE EXTENSION IF NOT EXISTS vector;
+#   3. Copy connection string → workhq-api env DATABASE_URL
+#   4. Manual Deploy workhq-api
+#
+# Free web limits: pause unused services (push-*) if deploy fails.
 
 services:
   - type: web
@@ -17,9 +23,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: workhq-db
-          property: connectionString
+        sync: false
       - key: REDIS_URL
         fromService:
           name: workhq-redis
@@ -62,9 +66,3 @@ services:
     plan: free
     maxmemoryPolicy: allkeys-lru
     ipAllowList: []
-
-databases:
-  - name: workhq-db
-    plan: free
-    databaseName: workhq
-    user: workhq

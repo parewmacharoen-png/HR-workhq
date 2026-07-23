@@ -130,13 +130,28 @@ async function parseJsonResponse<T>(res: Response): Promise<T> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, { ...init, headers: { ...authHeaders(), ...init?.headers } });
-  if (res.status === 401) {
-    handleUnauthorized();
-    throw new ApiError('Unauthorized', 401);
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+  try {
+    const res = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      headers: { ...authHeaders(), ...init?.headers },
+    });
+    if (res.status === 401) {
+      handleUnauthorized();
+      throw new ApiError('Unauthorized', 401);
+    }
+    if (!res.ok) throw await parseError(res);
+    return parseJsonResponse<T>(res);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError('เซิร์ฟเวอร์ตอบช้าหรือยังไม่พร้อม (API อาจกำลังตื่นจากโหมด sleep)', 504);
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
-  if (!res.ok) throw await parseError(res);
-  return parseJsonResponse<T>(res);
 }
 
 function assertValidCompanyParam(params?: Record<string, string | undefined>) {
@@ -153,13 +168,24 @@ export async function apiGet<T>(path: string, params?: Record<string, string | u
       if (value) url.searchParams.set(key, value);
     });
   }
-  const res = await fetch(url.toString(), { headers: authHeaders() });
-  if (res.status === 401) {
-    handleUnauthorized();
-    throw new ApiError('Unauthorized', 401);
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+  try {
+    const res = await fetch(url.toString(), { headers: authHeaders(), signal: controller.signal });
+    if (res.status === 401) {
+      handleUnauthorized();
+      throw new ApiError('Unauthorized', 401);
+    }
+    if (!res.ok) throw await parseError(res);
+    return parseJsonResponse<T>(res);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError('เซิร์ฟเวอร์ตอบช้าหรือยังไม่พร้อม (API อาจกำลังตื่นจากโหมด sleep)', 504);
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
-  if (!res.ok) throw await parseError(res);
-  return parseJsonResponse<T>(res);
 }
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
@@ -213,13 +239,25 @@ export async function apiDeleteWithBody<T>(path: string, body: unknown): Promise
 }
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-  if (!res.ok) throw await parseError(res);
-  return parseJsonResponse<LoginResponse>(res);
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw await parseError(res);
+    return parseJsonResponse<LoginResponse>(res);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError('เซิร์ฟเวอร์ตอบช้าหรือยังไม่พร้อม (API อาจกำลังตื่นจากโหมด sleep)', 504);
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export async function fetchMe(): Promise<MeResponse> {

@@ -31,6 +31,8 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;     -- gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS btree_gist;   -- EXCLUDE constraints (no-overlap)
 CREATE EXTENSION IF NOT EXISTS vector;        -- pgvector for AI embeddings
+-- NOTE: Render free Postgres does NOT include pgvector. Use Neon/Supabase
+-- (or any Postgres with the vector extension) for DATABASE_URL in production.
 
 -- ---------------------------------------------------------------------------
 -- Schemas (logical domains)
