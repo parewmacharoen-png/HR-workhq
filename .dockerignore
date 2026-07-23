@@ -1,0 +1,53 @@
+# ============================================================================
+# .dockerignore — files excluded from the Docker build context
+# This keeps the image lean and prevents secrets from leaking into layers.
+# ============================================================================
+
+# Dependencies (installed fresh inside the image)
+node_modules
+backend/node_modules
+
+# Build output (re-built inside image)
+dist
+backend/dist
+
+# Test files (not needed in production image)
+**/*.spec.ts
+**/*.test.ts
+coverage
+backend/coverage
+test
+backend/test
+
+# Development configs
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# Git and CI
+.git
+.gitignore
+.github
+
+# Docker files (no need to self-reference)
+Dockerfile
+docker-compose*.yml
+docker/
+
+# Editor and OS artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea
+.vscode
+*.log
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+backend/*.tsbuildinfo
+
+# Prisma generated files (regenerated inside builder stage)
+backend/node_modules/.prisma

@@ -1,0 +1,27 @@
+# ============================================================================
+# WorkHQ — Dockerfile.migrate
+# Dedicated one-shot migration runner. Run before API replicas start.
+#
+# Build:
+#   docker build -f Dockerfile.migrate -t workhq-migrate .
+#
+# Run:
+#   docker run --rm -e DATABASE_URL=postgresql://... workhq-migrate
+# ============================================================================
+
+FROM node:20-bookworm-slim
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+LABEL org.opencontainers.image.title="WorkHQ Migrate"
+LABEL org.opencontainers.image.description="Prisma migration runner (single instance)"
+
+WORKDIR /workhq
+
+COPY prisma ./prisma
+COPY backend/package.json backend/package-lock.json ./backend/
+
+WORKDIR /workhq/backend
+RUN npm ci --ignore-scripts
+
+CMD ["npx", "prisma", "migrate", "deploy", "--schema=../prisma/schema.prisma"]

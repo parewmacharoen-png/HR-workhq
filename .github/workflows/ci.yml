@@ -1,0 +1,263 @@
+# ============================================================================
+# .github/workflows/ci.yml
+# Continuous Integration — runs on every push and pull request.
+#
+# Jobs:
+#   lint    – ESLint check (fails fast, no DB needed)
+#   test    – Unit tests (pure domain services, no DB)
+#   build   – TypeScript compilation + Prisma client generation
+#   docker  – Docker image builds (verifies the Dockerfile is not broken)
+#
+# The CI database (postgres service) is used only for future integration tests.
+# Unit tests have zero external dependencies.
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+# Cancel in-progress runs for the same ref (saves CI minutes)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  # Fake DATABASE_URL for build steps that don't connect to a real DB.
+  # Prisma generate does not require a live connection.
+  DATABASE_URL: postgresql://workhq:workhq@localhost:5432/workhq
+
+jobs:
+  # ── Lint ──────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npx eslint "src/**/*.ts" --max-warnings 0
+        # Treat warnings as errors in CI (use --max-warnings 0)
+        continue-on-error: false
+
+  # ── Unit tests ────────────────────────────────────────────────────────────
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm run test:unit:cov
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: backend/coverage/
+          retention-days: 7
+
+  # ── TypeScript build + Prisma generate ────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=../prisma/schema.prisma
+
+      - name: Compile TypeScript
+        run: npm run build
+
+      - name: Verify dist/main.js exists
+        run: |
+          if [ ! -f dist/main.js ]; then
+            echo "❌ dist/main.js not found — build failed"
+            exit 1
+          fi
+          echo "✅ dist/main.js produced successfully"
+
+      - name: Cache build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/dist
+            backend/node_modules/.prisma
+          key: build-${{ github.sha }}
+
+  # ── Docker image build verification ──────────────────────────────────────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [build]     # Only attempt Docker build if TS compile passes
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (verify only — no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: workhq-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+
+  # ── Integration tests (PostgreSQL) ────────────────────────────────────────
+  # Requires DATABASE_URL (set below). Covers exit-deposit, employee-recognition,
+  # and other DB-backed specs via `npm run test:int:cov`.
+  # Local parity: `./scripts/emp-012-consistency-check.sh` with DATABASE_URL exported.
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: workhq
+          POSTGRES_PASSWORD: workhq
+          POSTGRES_DB: workhq_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workhq -d workhq_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://workhq:workhq@localhost:5432/workhq_test
+      JWT_SECRET: ci_integration_test_jwt_secret_minimum_32
+      TELEGRAM_WEBHOOK_SECRET: ci-test-webhook-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests with coverage
+        run: npm run test:int:cov
+
+      - name: Upload integration coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-coverage-report
+          path: backend/coverage/
+          retention-days: 7
+
+  # ── Migration validation (schema lint) ────────────────────────────────────
+  # Validates that prisma/schema.prisma is syntactically consistent.
+  # Does NOT run against a real database — uses prisma format --check.
+  prisma-validate:
+    name: Prisma Schema Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Prisma schema format
+        run: |
+          npx prisma format --schema=../prisma/schema.prisma
+          # If format changes anything, it means the schema wasn't committed cleanly
+          if [ -n "$(git diff --name-only ../prisma/schema.prisma)" ]; then
+            echo "❌ prisma/schema.prisma has unformatted sections — run 'npx prisma format' locally"
+            git diff ../prisma/schema.prisma
+            exit 1
+          fi
+          echo "✅ Prisma schema is formatted correctly"
+
+      - name: Verify migration_lock.toml exists
+        run: |
+          if [ ! -f ../prisma/migrations/migration_lock.toml ]; then
+            echo "❌ migration_lock.toml missing"
+            exit 1
+          fi
+          echo "✅ migration_lock.toml present"
+          cat ../prisma/migrations/migration_lock.toml

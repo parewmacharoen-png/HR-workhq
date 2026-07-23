@@ -1,0 +1,317 @@
+{
+  "meta": {
+    "version": "UX-01",
+    "locale": "th-TH",
+    "note": "คำศัพท์ UI ทั้งหมดต้องใช้จาก dictionary นี้ — ห้ามแสดง English ให้ผู้ใช้เห็น (ยกเว้น technical code/API)"
+  },
+  "navigation": {
+    "brand": "WorkHQ",
+    "brandTagline": "ระบบปฏิบัติการบริษัท",
+    "dashboard": "ภาพรวม",
+    "overview": "หน้าหลัก",
+    "hr": "ทรัพยากรบุคคล",
+    "employees": "พนักงาน",
+    "organization": "โครงสร้างองค์กร",
+    "pendingRegistrations": "รออนุมัติสมัคร",
+    "telegramIdentities": "บัญชี Telegram",
+    "attendance": "การเข้างาน",
+    "dailyAttendance": "บันทึกประจำวัน",
+    "otApprovals": "อนุมัติ OT",
+    "leave": "การลา",
+    "leaveRequests": "คำขอลา",
+    "leaveReschedule": "เลื่อนวันลา",
+    "shiftSwaps": "สลับกะ",
+    "payroll": "เงินเดือน",
+    "payrollCycles": "รอบเงินเดือน",
+    "marketing": "การตลาด",
+    "marketingReports": "รายงานการตลาด",
+    "kpiReview": "ตรวจ KPI",
+    "expenses": "ค่าใช้จ่าย",
+    "expenseDashboard": "ภาพรวมค่าใช้จ่าย",
+    "teams": "ทีม",
+    "insights": "ข้อมูลเชิงลึก",
+    "auditHistory": "ประวัติการตรวจสอบ",
+    "commission": "ค่าคอมมิชชัน",
+    "commissionCycles": "รอบค่าคอม",
+    "adjustments": "การปรับยอด",
+    "declarations": "การประกาศ",
+    "finance": "การเงิน",
+    "financeOverview": "ภาพรวมการเงิน",
+    "knowledge": "คลังความรู้",
+    "articles": "บทความ",
+    "settings": "ตั้งค่า",
+    "hrSettings": "ตั้งค่า HR",
+    "adminCommission": "ค่าคอม (แอดมิน)",
+    "marketingCommission": "ค่าคอม (การตลาด)",
+    "executive": "ผู้บริหาร",
+    "executiveDashboard": "แดชบอร์ดผู้บริหาร",
+    "logout": "ออกจากระบบ",
+    "company": "บริษัท",
+    "selectCompany": "เลือกบริษัท…"
+  },
+  "dashboard": {
+    "title": "สวัสดีตอนเช้า",
+    "subtitle": "นี่คือภาพรวมของบริษัทวันนี้",
+    "selectCompanyWarning": "เลือกบริษัทจากแถบด้านบนเพื่อดูข้อมูล",
+    "quickActions": "ทำอะไรดีวันนี้",
+    "todaySummary": "สรุปวันนี้",
+    "teamPulse": "สถานะทีม",
+    "recentActivity": "กิจกรรมล่าสุด",
+    "cards": {
+      "employees": "พนักงาน",
+      "employeesDesc": "ดูและจัดการข้อมูลพนักงาน",
+      "payroll": "เงินเดือน",
+      "payrollDesc": "ตรวจสอบรอบเงินเดือน",
+      "leave": "การลา",
+      "leaveDesc": "คำขอลารออนุมัติ",
+      "attendance": "การเข้างาน",
+      "attendanceDesc": "บันทึกและ OT",
+      "marketing": "การตลาด",
+      "marketingDesc": "รายงานและ KPI",
+      "knowledge": "คลังความรู้",
+      "knowledgeDesc": "นโยบายและคู่มือ",
+      "executive": "ภาพรวมผู้บริหาร",
+      "executiveDesc": "ตัวชี้วัดสำคัญ"
+    },
+    "stats": {
+      "activeEmployees": "พนักงานที่ทำงานอยู่",
+      "onLeaveToday": "ลาวันนี้",
+      "pendingApprovals": "รออนุมัติ",
+      "telegramLinked": "เชื่อม Telegram แล้ว"
+    }
+  },
+  "employees": {
+    "title": "พนักงาน",
+    "subtitle": "{count} คน · {company}",
+    "addEmployee": "เพิ่มพนักงาน",
+    "refresh": "รีเฟรช",
+    "search": "ค้นหา",
+    "searchPlaceholder": "ชื่อ, รหัส, อีเมล, เบอร์โทร…",
+    "status": "สถานะ",
+    "allStatuses": "ทุกสถานะ",
+    "statusLabels": {
+      "probation": "ทดลองงาน",
+      "active": "ทำงานอยู่",
+      "suspended": "พักงาน",
+      "terminated": "ลาออกแล้ว"
+    },
+    "noPosition": "ยังไม่ระบุตำแหน่ง",
+    "noLogin": "ยังไม่มีบัญชีเข้าใช้งาน",
+    "telegramLinked": "เชื่อม Telegram แล้ว",
+    "telegramNotLinked": "ยังไม่เชื่อม Telegram",
+    "empty": {
+      "title": "ยังไม่มีพนักงาน",
+      "description": "เริ่มต้นด้วยการเพิ่มพนักงานคนแรก เพื่อเริ่ม onboarding และเงินเดือน"
+    },
+    "selectCompany": {
+      "title": "เลือกบริษัทก่อน",
+      "description": "เลือกบริษัทจากแถบด้านบนเพื่อดูรายชื่อพนักงาน"
+    }
+  },
+  "employeeDetail": {
+    "back": "← กลับไปพนักงาน",
+    "profile": "ข้อมูลส่วนตัว",
+    "phone": "เบอร์โทร",
+    "employmentStatus": "สถานะการทำงาน",
+    "telegramIdentity": "บัญชี Telegram",
+    "linked": "เชื่อมแล้ว",
+    "notLinked": "ยังไม่เชื่อม Telegram",
+    "username": "ชื่อผู้ใช้",
+    "userId": "รหัส Telegram",
+    "linkedAt": "เชื่อมเมื่อ",
+    "lastSeen": "ใช้งานล่าสุด",
+    "resetBinding": "รีเซ็ตการเชื่อม",
+    "revokeAccess": "ยกเลิกสิทธิ์",
+    "reactivateAccess": "เปิดสิทธิ์อีกครั้ง",
+    "reportingStructure": "สายบังคับบัญชา",
+    "accessControl": "สิทธิ์การใช้งาน",
+    "salaryVisibility": "การเห็นข้อมูลเงินเดือน",
+    "createLinkedUser": "สร้างบัญชีเข้าใช้งาน",
+    "directReports": "ลูกทีมโดยตรง",
+    "manager": "หัวหน้างาน"
+  },
+  "organization": {
+    "title": "โครงสร้างองค์กร",
+    "subtitle": "สายบังคับบัญชาและลำดับชั้นของ {company}",
+    "directReports": "{count} คนในทีม",
+    "directReportsOne": "1 คนในทีม",
+    "empty": {
+      "title": "ยังไม่มีสายบังคับบัญชา",
+      "description": "กำหนดหัวหน้างานในหน้าโปรไฟล์พนักงาน เพื่อสร้างโครงสร้างองค์กร"
+    },
+    "selectCompany": {
+      "title": "เลือกบริษัทก่อน",
+      "description": "เลือกบริษัทจากแถบด้านบนเพื่อดูโครงสร้างองค์กร"
+    },
+    "roleLabels": {
+      "employee": "พนักงาน",
+      "team_lead": "หัวหน้าทีม",
+      "manager": "ผู้จัดการ",
+      "director": "ผู้อำนวยการ",
+      "executive": "ผู้บริหาร"
+    }
+  },
+  "accessControl": {
+    "title": "สิทธิ์การใช้งาน",
+    "businessRole": "บทบาทในองค์กร",
+    "permissionScope": "ขอบเขตสิทธิ์",
+    "scopeAll": "ทุกบริษัท",
+    "scopeCompany": "เฉพาะบริษัท",
+    "canAccess": "เข้าถึงได้",
+    "cannotAccess": "เข้าถึงไม่ได้",
+    "overrides": "สิทธิ์พิเศษ",
+    "addOverride": "เพิ่มสิทธิ์พิเศษ"
+  },
+  "common": {
+    "loading": "กำลังโหลด…",
+    "loadingEmployees": "กำลังโหลดพนักงาน…",
+    "loadingOrganization": "กำลังโหลดโครงสร้างองค์กร…",
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "confirm": "ยืนยัน",
+    "delete": "ลบ",
+    "edit": "แก้ไข",
+    "close": "ปิด",
+    "retry": "ลองอีกครั้ง",
+    "refresh": "รีเฟรช",
+    "filter": "กรอง",
+    "clearFilter": "ล้างตัวกรอง",
+    "noResults": "ไม่พบข้อมูล",
+    "required": "จำเป็นต้องกรอก",
+    "optional": "ไม่บังคับ",
+    "yes": "ใช่",
+    "no": "ไม่",
+    "all": "ทั้งหมด",
+    "none": "ไม่มี",
+    "actions": "การดำเนินการ",
+    "details": "รายละเอียด",
+    "viewAll": "ดูทั้งหมด"
+  },
+  "validation": {
+    "required": "กรุณากรอก{field}",
+    "requiredSelect": "กรุณาเลือก{field}",
+    "emailInvalid": "รูปแบบอีเมลไม่ถูกต้อง",
+    "phoneInvalid": "รูปแบบเบอร์โทรไม่ถูกต้อง",
+    "minLength": "{field} ต้องมีอย่างน้อย {min} ตัวอักษร",
+    "maxLength": "{field} ต้องไม่เกิน {max} ตัวอักษร",
+    "dateInvalid": "รูปแบบวันที่ไม่ถูกต้อง",
+    "dateFuture": "วันที่ต้องไม่เป็นอดีต",
+    "datePast": "วันที่ต้องไม่เป็นอนาคต",
+    "numberInvalid": "กรุณากรอกตัวเลขที่ถูกต้อง",
+    "numberMin": "ค่าต้องไม่น้อยกว่า {min}",
+    "numberMax": "ค่าต้องไม่เกิน {max}",
+    "companyRequired": "กรุณาเลือกบริษัทก่อนดำเนินการ",
+    "duplicateEmail": "อีเมลนี้ถูกใช้งานแล้ว",
+    "duplicateEmployeeId": "รหัสพนักงานนี้มีอยู่แล้ว"
+  },
+  "errors": {
+    "generic": "เกิดข้อผิดพลาด กรุณาลองอีกครั้ง",
+    "network": "เชื่อมต่อไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่",
+    "unauthorized": "คุณไม่มีสิทธิ์เข้าถึงหน้านี้",
+    "notFound": "ไม่พบข้อมูลที่ต้องการ",
+    "sessionExpired": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
+    "serverError": "เซิร์ฟเวอร์มีปัญหา ลองอีกครั้งในอีกสักครู่",
+    "loadFailed": "โหลดข้อมูลไม่สำเร็จ",
+    "saveFailed": "บันทึกไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่"
+  },
+  "success": {
+    "saved": "บันทึกเรียบร้อยแล้ว",
+    "created": "สร้างเรียบร้อยแล้ว",
+    "updated": "อัปเดตเรียบร้อยแล้ว",
+    "deleted": "ลบเรียบร้อยแล้ว",
+    "employeeCreated": "เพิ่มพนักงานเรียบร้อยแล้ว",
+    "accessUpdated": "อัปเดตสิทธิ์เรียบร้อยแล้ว",
+    "telegramReset": "รีเซ็ตการเชื่อม Telegram แล้ว",
+    "telegramRevoked": "ยกเลิกสิทธิ์ Telegram แล้ว",
+    "telegramReactivated": "เปิดสิทธิ์ Telegram อีกครั้งแล้ว"
+  },
+  "emptyStates": {
+    "noEmployees": {
+      "title": "ยังไม่มีพนักงาน",
+      "description": "เริ่มต้นด้วยการเพิ่มพนักงานคนแรก เพื่อเริ่ม onboarding และเงินเดือน",
+      "cta": "เพิ่มพนักงาน"
+    },
+    "noOrganization": {
+      "title": "ยังไม่มีสายบังคับบัญชา",
+      "description": "กำหนดหัวหน้างานในหน้าโปรไฟล์พนักงาน เพื่อสร้างโครงสร้างองค์กร",
+      "cta": "ไปที่พนักงาน"
+    },
+    "noSearchResults": {
+      "title": "ไม่พบผลลัพธ์",
+      "description": "ลองค้นหาด้วยคำอื่น หรือล้างตัวกรอง",
+      "cta": "ล้างตัวกรอง"
+    },
+    "noLeaveRequests": {
+      "title": "ยังไม่มีคำขอลา",
+      "description": "เมื่อมีคำขอลาใหม่ จะแสดงที่นี่"
+    },
+    "noTelegram": {
+      "title": "ยังไม่เชื่อม Telegram",
+      "description": "พนักงานสามารถเชื่อมบัญชีผ่านแอป Telegram ได้"
+    },
+    "noDirectReports": {
+      "title": "ยังไม่มีลูกทีม",
+      "description": "พนักงานคนนี้ยังไม่มีผู้ใต้บังคับบัญชา"
+    },
+    "selectCompany": {
+      "title": "เลือกบริษัทก่อน",
+      "description": "เลือกบริษัทจากแถบด้านบนเพื่อดูข้อมูล"
+    }
+  },
+  "payroll": {
+    "cycles": "รอบเงินเดือน",
+    "cycleStatus": "สถานะรอบ",
+    "draft": "ฉบับร่าง",
+    "processing": "กำลังประมวลผล",
+    "finalized": "ปิดรอบแล้ว",
+    "payslip": "สลิปเงินเดือน",
+    "salaryVisibility": "การเห็นข้อมูลเงินเดือน"
+  },
+  "attendance": {
+    "checkIn": "เช็คอิน",
+    "checkOut": "เช็คเอาท์",
+    "overtime": "OT",
+    "approve": "อนุมัติ",
+    "reject": "ไม่อนุมัติ"
+  },
+  "leave": {
+    "requestLeave": "ขอลา",
+    "approve": "อนุมัติ",
+    "reject": "ไม่อนุมัติ",
+    "pending": "รออนุมัติ",
+    "approved": "อนุมัติแล้ว",
+    "rejected": "ไม่อนุมัติ"
+  },
+  "telegram": {
+    "linked": "เชื่อมแล้ว",
+    "notLinked": "ยังไม่เชื่อม",
+    "revoked": "ถูกยกเลิก",
+    "active": "ใช้งานอยู่",
+    "resetBinding": "รีเซ็ตการเชื่อม",
+    "revokeAccess": "ยกเลิกสิทธิ์",
+    "reactivate": "เปิดสิทธิ์อีกครั้ง"
+  },
+  "roles": {
+    "admin": "ผู้ดูแลระบบ",
+    "hr": "HR",
+    "manager": "ผู้จัดการ",
+    "employee": "พนักงาน",
+    "owner": "เจ้าของ",
+    "finance": "การเงิน",
+    "marketing": "การตลาด"
+  },
+  "permissions": {
+    "employeeRead": "ดูข้อมูลพนักงาน",
+    "employeeWrite": "แก้ไขข้อมูลพนักงาน",
+    "organizationRead": "ดูโครงสร้างองค์กร",
+    "payrollRead": "ดูเงินเดือน",
+    "payrollWrite": "จัดการเงินเดือน",
+    "leaveRead": "ดูการลา",
+    "leaveWrite": "จัดการการลา",
+    "attendanceRead": "ดูการเข้างาน",
+    "securityRead": "ดูความปลอดภัย",
+    "securityWrite": "จัดการความปลอดภัย",
+    "settingsRead": "ดูการตั้งค่า",
+    "reportingExecutive": "รายงานผู้บริหาร"
+  }
+}

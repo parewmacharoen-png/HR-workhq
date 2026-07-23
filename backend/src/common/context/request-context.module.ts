@@ -1,0 +1,13 @@
+// ============================================================================
+// common/context/request-context.module.ts
+// ============================================================================
+
+import { Global, Module } from '@nestjs/common';
+import { RequestContextService } from './request-context';
+
+@Global()
+@Module({
+  providers: [RequestContextService],
+  exports: [RequestContextService],
+})
+export class RequestContextModule {}

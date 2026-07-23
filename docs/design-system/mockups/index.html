@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorkHQ UX-01 — Design Mockups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --whq-bg: #fdf9f4;
+      --whq-bg-subtle: #fffbf7;
+      --whq-bg-elevated: #ffffff;
+      --whq-border: #f0e8df;
+      --whq-border-strong: #e4d9ce;
+      --whq-text: #3d2f24;
+      --whq-text-muted: #9a8578;
+      --whq-primary: #6db88a;
+      --whq-primary-hover: #5da678;
+      --whq-primary-subtle: #edf7f0;
+      --whq-primary-text: #2d5a3d;
+      --whq-secondary: #d4956a;
+      --whq-accent-warm: #f5b88a;
+      --whq-accent-warm-subtle: #fff4eb;
+      --whq-accent-cool: #8ecae6;
+      --whq-accent-cool-subtle: #eef8fc;
+      --whq-accent-lavender: #c9b8e8;
+      --whq-accent-lavender-subtle: #f5f0fd;
+      --whq-accent-peach: #ffb4a2;
+      --whq-accent-peach-subtle: #fff0ec;
+      --whq-success-bg: #edf7f0;
+      --whq-success-text: #2d5a3d;
+      --whq-warning-bg: #fff8ed;
+      --whq-warning-text: #a07030;
+      --whq-info-bg: #eef8fc;
+      --whq-info-text: #3d6a80;
+      --whq-danger-bg: #fff0f0;
+      --whq-danger-text: #a05050;
+      --whq-radius-md: 14px;
+      --whq-radius-lg: 20px;
+      --whq-radius-xl: 24px;
+      --whq-radius-2xl: 28px;
+      --whq-shadow-card: 0 4px 20px rgba(61, 47, 36, 0.06);
+      --whq-shadow-card-hover: 0 8px 32px rgba(109, 184, 138, 0.18);
+      --whq-shadow-soft: 0 2px 16px rgba(245, 184, 138, 0.15);
+      --whq-sidebar-width: 272px;
+      --whq-font: 'IBM Plex Sans Thai', system-ui, sans-serif;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    @keyframes wiggle {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-8deg); }
+      75% { transform: rotate(8deg); }
+    }
+    @keyframes pulse-soft {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.9; }
+    }
+    @keyframes sparkle {
+      0%, 100% { opacity: 0.4; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+
+    body {
+      font-family: var(--whq-font);
+      background: #f5ebe0;
+      background-image:
+        radial-gradient(circle at 20% 20%, rgba(255, 180, 162, 0.25) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(142, 202, 230, 0.2) 0%, transparent 50%),
+        radial-gradient(circle, rgba(109, 184, 138, 0.08) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px;
+      color: var(--whq-text);
+      font-size: 15px;
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+
+    /* ── Mockup chrome (screen switcher) ── */
+    .mockup-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      background: #2c2419;
+      color: #faf8f5;
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+    .mockup-bar span { opacity: 0.7; margin-right: 0.5rem; }
+    .mockup-bar button {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+    }
+    .mockup-bar button:hover { background: rgba(255,255,255,0.18); }
+    .mockup-bar button.active {
+      background: var(--whq-primary);
+      border-color: var(--whq-primary);
+    }
+
+    .mockup-frame {
+      margin-top: 48px;
+      padding: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .screen { display: none; width: 100%; max-width: 1440px; }
+    .screen.active { display: block; }
+
+    /* ── App Shell ── */
+    .app-shell {
+      display: flex;
+      min-height: calc(100vh - 80px);
+      background: var(--whq-bg);
+      border-radius: var(--whq-radius-2xl);
+      overflow: hidden;
+      box-shadow: 0 16px 56px rgba(61, 47, 36, 0.1), 0 0 0 1px rgba(255,255,255,0.6) inset;
+      position: relative;
+    }
+    .app-shell::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(255, 180, 162, 0.35) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .app-shell::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; left: 30%;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(142, 202, 230, 0.3) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .sidebar, .main-column { position: relative; z-index: 1; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--whq-sidebar-width);
+      background: var(--whq-bg-subtle);
+      border-right: 1px solid var(--whq-border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .brand {
+      padding: 1.5rem 1.25rem 1.25rem;
+      border-bottom: 1px solid var(--whq-border);
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #6db88a 0%, #8ecae6 100%);
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(109, 184, 138, 0.35);
+      animation: float 3s ease-in-out infinite;
+    }
+    .brand strong { display: block; font-size: 1.05rem; font-weight: 700; }
+    .brand span { font-size: 0.8rem; color: var(--whq-text-muted); }
+
+    .sidebar-nav { padding: 1rem 0.75rem; flex: 1; overflow-y: auto; }
+    .nav-group { margin-bottom: 1.25rem; }
+    .nav-group-label {
+      padding: 0 0.75rem 0.4rem;
+      font-size: 0.75rem;
+      color: var(--whq-text-muted);
+      font-weight: 500;
+    }
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: var(--whq-radius-md);
+      color: var(--whq-text);
+      text-decoration: none;
+      font-size: 0.9rem;
+      margin-bottom: 3px;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .nav-link:hover {
+      background: #fff5ee;
+      transform: translateX(4px);
+    }
+    .nav-link.active {
+      background: linear-gradient(135deg, var(--whq-primary-subtle) 0%, #eef8fc 100%);
+      color: var(--whq-primary-text);
+      font-weight: 600;
+      box-shadow: var(--whq-shadow-soft);
+    }
+    .nav-icon {
+      font-size: 1.1rem;
+      width: 1.5rem;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .nav-link:hover .nav-icon { transform: scale(1.15); }
+    .nav-link.active .nav-icon { animation: wiggle 0.5s ease; }
+
+    .sidebar-footer {
+      padding: 1rem 0.75rem;
+      border-top: 1px solid var(--whq-border);
+    }
+    .user-row {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fff4eb 0%, #eef8fc 100%);
+      border: 2.5px solid #fff;
+      box-shadow: 0 2px 10px rgba(245, 184, 138, 0.3);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--whq-secondary);
+    }
+    .avatar-lg {
+      width: 80px;
+      height: 80px;
+      font-size: 1.6rem;
+      border-width: 3px;
+      box-shadow: 0 4px 20px rgba(109, 184, 138, 0.25);
+    }
+    .avatar-pink { background: linear-gradient(135deg, #fff0ec, #f5f0fd); color: #c08090; }
+    .avatar-green { background: linear-gradient(135deg, #edf7f0, #eef8fc); color: #4a8a60; }
+    .avatar-peach { background: linear-gradient(135deg, #fff4eb, #fff0ec); color: #d4956a; }
+    .avatar-lavender { background: linear-gradient(135deg, #f5f0fd, #eef8fc); color: #9080b8; }
+    .avatar-blue { background: linear-gradient(135deg, #eef8fc, #edf7f0); color: #5080a0; }
+    .avatar-coral { background: linear-gradient(135deg, #fff0ec, #fff4eb); color: #c07060; }
+    .user-name { font-weight: 600; font-size: 0.88rem; }
+    .user-role { font-size: 0.75rem; color: var(--whq-text-muted); }
+    .logout-btn {
+      display: block;
+      width: 100%;
+      padding: 0.45rem 0.75rem;
+      background: none;
+      border: none;
+      color: var(--whq-text-muted);
+      font-family: inherit;
+      font-size: 0.85rem;
+      text-align: left;
+      cursor: pointer;
+      border-radius: var(--whq-radius-md);
+    }
+    .logout-btn:hover { background: #f0ebe3; color: var(--whq-text); }
+
+    /* ── Main column ── */
+    .main-column { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 1.75rem;
+      background: var(--whq-bg-elevated);
+      border-bottom: 1px solid var(--whq-border);
+      min-height: 64px;
+    }
+    .company-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem;
+      background: var(--whq-bg-subtle);
+      border: 1px solid var(--whq-border);
+      border-radius: var(--whq-radius-full, 9999px);
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+    .company-pill select {
+      border: none;
+      background: none;
+      font-family: inherit;
+      font-size: inherit;
+      color: var(--whq-text);
+      cursor: pointer;
+      outline: none;
+    }
+    .topbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+    .page-content {
+      padding: 2rem 2rem 2.5rem;
+      flex: 1;
+      overflow-y: auto;
+      background:
+        radial-gradient(ellipse at 100% 0%, rgba(255, 244, 235, 0.6) 0%, transparent 50%),
+        radial-gradient(ellipse at 0% 100%, rgba(238, 248, 252, 0.5) 0%, transparent 50%);
+    }
+
+    /* ── Welcome & cheer ── */
+    .welcome-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-bottom: 1.75rem;
+    }
+    .welcome-bubble {
+      flex: 1;
+      position: relative;
+    }
+    .welcome-bubble h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #3d2f24 0%, #6db88a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .mascot {
+      width: 88px;
+      height: 88px;
+      flex-shrink: 0;
+      background: linear-gradient(145deg, #6db88a, #8ecae6);
+      border-radius: 50% 50% 45% 45%;
+      display: grid;
+      place-items: center;
+      font-size: 2.5rem;
+      box-shadow: 0 8px 24px rgba(109, 184, 138, 0.35);
+      animation: float 2.5s ease-in-out infinite;
+      position: relative;
+    }
+    .mascot::after {
+      content: '✨';
+      position: absolute;
+      top: -4px; right: -4px;
+      font-size: 1rem;
+      animation: sparkle 2s ease-in-out infinite;
+    }
+    .cheer-banner {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1.25rem;
+      background: linear-gradient(135deg, #fff4eb 0%, #edf7f0 100%);
+      border-radius: var(--whq-radius-lg);
+      border: 1.5px solid rgba(245, 184, 138, 0.35);
+      margin-bottom: 1.75rem;
+      box-shadow: var(--whq-shadow-soft);
+    }
+    .cheer-banner-icon { font-size: 1.5rem; }
+    .cheer-banner strong { font-size: 0.95rem; color: var(--whq-text); }
+    .cheer-banner span { font-size: 0.85rem; color: var(--whq-text-muted); }
+    .streak-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.3rem 0.75rem;
+      background: #fff;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #d4956a;
+      border: 1.5px solid rgba(245, 184, 138, 0.5);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 1.875rem; font-weight: 600; line-height: 1.25; margin: 0; }
+    h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 0.75rem; }
+    .subtitle { color: var(--whq-text-muted); font-size: 0.95rem; margin-top: 0.35rem; }
+    .muted { color: var(--whq-text-muted); }
+
+    /* ── Page header ── */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--whq-text-muted);
+      text-decoration: none;
+      font-size: 0.88rem;
+      margin-bottom: 0.5rem;
+    }
+    .back-link:hover { color: var(--whq-primary); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.65rem 1.25rem;
+      border-radius: 9999px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6db88a 0%, #5da678 100%);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(109, 184, 138, 0.4);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(109, 184, 138, 0.5);
+    }
+    .btn-secondary {
+      background: var(--whq-bg-elevated);
+      color: var(--whq-text);
+      border: 1.5px solid var(--whq-border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--whq-accent-warm);
+      transform: translateY(-1px);
+      box-shadow: var(--whq-shadow-soft);
+    }
+    .btn-danger {
+      background: var(--whq-danger-bg);
+      color: var(--whq-danger-text);
+      border: 1px solid #f0c8c8;
+    }
+    .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    /* ── Cards ── */
+    .page-shell {
+      background: linear-gradient(160deg, #fffbf7 0%, #fff 40%, #fdf9f4 100%);
+      border-radius: var(--whq-radius-2xl);
+      padding: 2rem;
+      border: 1.5px solid var(--whq-border);
+      box-shadow: var(--whq-shadow-card);
+    }
+    .card {
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-xl);
+      border: 1.5px solid var(--whq-border);
+      box-shadow: var(--whq-shadow-card);
+      padding: 1.35rem;
+    }
+    .card-section { margin-bottom: 1.5rem; }
+    .card-section:last-child { margin-bottom: 0; }
+
+    /* ── Stat cards ── */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-xl);
+      border: 1.5px solid var(--whq-border);
+      padding: 1.35rem;
+      box-shadow: var(--whq-shadow-card);
+      transition: transform 0.25s, box-shadow 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      border-radius: var(--whq-radius-xl) var(--whq-radius-xl) 0 0;
+    }
+    .stat-card:nth-child(1)::before { background: linear-gradient(90deg, #6db88a, #8ecae6); }
+    .stat-card:nth-child(2)::before { background: linear-gradient(90deg, #8ecae6, #c9b8e8); }
+    .stat-card:nth-child(3)::before { background: linear-gradient(90deg, #f5b88a, #ffb4a2); }
+    .stat-card:nth-child(4)::before { background: linear-gradient(90deg, #ffb4a2, #6db88a); }
+    .stat-card:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: var(--whq-shadow-card-hover);
+    }
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.35rem;
+      margin-bottom: 0.85rem;
+    }
+    .stat-icon.green { background: var(--whq-primary-subtle); }
+    .stat-icon.warm { background: var(--whq-accent-warm-subtle); }
+    .stat-icon.cool { background: var(--whq-accent-cool-subtle); }
+    .stat-icon.warning { background: var(--whq-warning-bg); }
+    .stat-icon.lavender { background: var(--whq-accent-lavender-subtle); }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 0.3rem;
+      color: var(--whq-text);
+    }
+    .stat-label { font-size: 0.82rem; color: var(--whq-text-muted); }
+    .stat-trend {
+      font-size: 0.72rem;
+      color: var(--whq-primary);
+      font-weight: 600;
+      margin-top: 0.35rem;
+    }
+
+    /* ── Action cards ── */
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--whq-text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .section-title-emoji { font-size: 1.2rem; }
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .action-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 1.35rem;
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-xl);
+      border: 1.5px solid var(--whq-border);
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+      position: relative;
+    }
+    .action-card:nth-child(1) { background: linear-gradient(160deg, #fff 60%, #edf7f0 100%); }
+    .action-card:nth-child(2) { background: linear-gradient(160deg, #fff 60%, #fff4eb 100%); }
+    .action-card:nth-child(3) { background: linear-gradient(160deg, #fff 60%, #eef8fc 100%); }
+    .action-card:nth-child(4) { background: linear-gradient(160deg, #fff 60%, #f5f0fd 100%); }
+    .action-card:nth-child(5) { background: linear-gradient(160deg, #fff 60%, #fff0ec 100%); }
+    .action-card:nth-child(6) { background: linear-gradient(160deg, #fff 60%, #edf7f0 100%); }
+    .action-card:hover {
+      transform: translateY(-5px) rotate(-0.5deg);
+      border-color: rgba(109, 184, 138, 0.4);
+      box-shadow: var(--whq-shadow-card-hover);
+    }
+    .action-card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.8);
+      display: grid;
+      place-items: center;
+      font-size: 1.35rem;
+      margin-bottom: 0.35rem;
+      box-shadow: 0 2px 8px rgba(61, 47, 36, 0.06);
+    }
+    .action-card strong { font-size: 0.95rem; }
+    .action-card span { font-size: 0.82rem; color: var(--whq-text-muted); }
+    .action-card-badge {
+      position: absolute;
+      top: 0.85rem; right: 0.85rem;
+      background: #ffb4a2;
+      color: #fff;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+    }
+
+    /* ── Activity feed ── */
+    .activity-list { display: grid; gap: 0.65rem; }
+    .activity-item {
+      display: flex;
+      gap: 0.85rem;
+      padding: 0.95rem 1.1rem;
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-lg);
+      border: 1.5px solid var(--whq-border);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .activity-item:hover {
+      transform: translateX(4px);
+      box-shadow: var(--whq-shadow-soft);
+    }
+    .activity-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 8px rgba(61, 47, 36, 0.08);
+    }
+    .activity-text { font-size: 0.88rem; }
+    .activity-time { font-size: 0.75rem; color: var(--whq-text-muted); margin-top: 0.15rem; }
+
+    /* ── Filter toolbar ── */
+    .filter-toolbar {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 0.85rem;
+      padding: 1rem;
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-lg);
+      border: 1px solid var(--whq-border);
+      margin-bottom: 1.5rem;
+    }
+    .field label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--whq-text-muted);
+      margin-bottom: 0.3rem;
+    }
+    .field input, .field select {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1.5px solid var(--whq-border);
+      border-radius: var(--whq-radius-md);
+      font-family: inherit;
+      font-size: 0.9rem;
+      background: var(--whq-bg-subtle);
+      color: var(--whq-text);
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--whq-primary);
+      box-shadow: 0 0 0 3px var(--whq-primary-subtle);
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.7rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .badge-active { background: var(--whq-success-bg); color: var(--whq-success-text); }
+    .badge-active::before { content: '●'; font-size: 0.5rem; }
+    .badge-probation { background: var(--whq-info-bg); color: var(--whq-info-text); }
+    .badge-probation::before { content: '🌱'; font-size: 0.65rem; }
+    .badge-warning { background: var(--whq-warning-bg); color: var(--whq-warning-text); }
+    .badge-warning::before { content: '⏸'; font-size: 0.65rem; }
+
+    /* ── Employee cards ── */
+    .employee-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .employee-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1.25rem;
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-xl);
+      border: 1.5px solid var(--whq-border);
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+    }
+    .employee-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(109, 184, 138, 0.45);
+      box-shadow: var(--whq-shadow-card-hover);
+    }
+    .employee-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .employee-card-body { flex: 1; }
+    .employee-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .employee-id { font-size: 0.78rem; font-weight: 600; color: var(--whq-text-muted); }
+    .employee-name { font-size: 1.05rem; font-weight: 600; }
+    .employee-role { font-size: 0.85rem; color: var(--whq-text-muted); }
+    .employee-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      font-size: 0.8rem;
+      color: var(--whq-text-muted);
+      margin-top: 0.25rem;
+      padding-top: 0.65rem;
+      border-top: 1px solid var(--whq-border);
+    }
+
+    /* ── Employee detail ── */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #edf7f0, #eef8fc);
+      display: grid;
+      place-items: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--whq-primary-text);
+      border: 3px solid #fff;
+      box-shadow: 0 6px 24px rgba(109, 184, 138, 0.3);
+      animation: pulse-soft 3s ease-in-out infinite;
+    }
+    .flash {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 1.15rem;
+      background: linear-gradient(135deg, #edf7f0, #eef8fc);
+      border: 1.5px solid rgba(109, 184, 138, 0.4);
+      border-radius: var(--whq-radius-lg);
+      color: var(--whq-success-text);
+      margin-bottom: 1.25rem;
+      font-size: 0.9rem;
+      box-shadow: var(--whq-shadow-soft);
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.65rem 0;
+      border-bottom: 1px solid var(--whq-border);
+      font-size: 0.9rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--whq-text-muted); }
+
+    /* ── Access control preview ── */
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.65rem;
+    }
+    .role-card {
+      padding: 0.85rem 1rem;
+      border-radius: var(--whq-radius-md);
+      border: 1.5px solid var(--whq-border);
+      background: var(--whq-bg-subtle);
+      cursor: pointer;
+    }
+    .role-card.selected {
+      border-color: var(--whq-primary);
+      background: var(--whq-primary-subtle);
+    }
+    .role-card strong { display: block; font-size: 0.9rem; margin-bottom: 0.15rem; }
+    .role-card span { font-size: 0.78rem; color: var(--whq-text-muted); }
+
+    /* ── Org tree ── */
+    .org-tree { display: grid; gap: 0.75rem; }
+    .org-node {
+      padding: 1.1rem 1.25rem;
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-xl);
+      border: 1.5px solid var(--whq-border);
+      box-shadow: var(--whq-shadow-card);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .org-node:hover {
+      transform: translateX(3px);
+      box-shadow: var(--whq-shadow-soft);
+    }
+    .org-node-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .org-toggle {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--whq-bg-subtle);
+      border: 1px solid var(--whq-border);
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .org-name { font-weight: 600; font-size: 1rem; color: var(--whq-text); }
+    .org-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.75rem;
+      margin-top: 0.25rem;
+      font-size: 0.78rem;
+      color: var(--whq-text-muted);
+    }
+    .org-role-badge {
+      background: linear-gradient(135deg, var(--whq-primary-subtle), #eef8fc);
+      color: var(--whq-primary-text);
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 0.72rem;
+    }
+    .org-children {
+      margin-left: 2.5rem;
+      margin-top: 0.65rem;
+      padding-left: 1rem;
+      border-left: 3px dashed rgba(109, 184, 138, 0.35);
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 2rem;
+    }
+    .empty-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--whq-accent-warm-subtle);
+      display: grid;
+      place-items: center;
+      font-size: 2rem;
+      margin: 0 auto 1.25rem;
+    }
+    .empty-state h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .empty-state p { color: var(--whq-text-muted); max-width: 360px; margin: 0 auto 1.25rem; }
+
+    /* ── Sidebar-only screen ── */
+    .sidebar-showcase {
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+    }
+    .sidebar-showcase .sidebar {
+      border-radius: var(--whq-radius-xl);
+      box-shadow: var(--whq-shadow-card);
+      min-height: 640px;
+    }
+    .sidebar-notes {
+      flex: 1;
+      background: var(--whq-bg-elevated);
+      border-radius: var(--whq-radius-xl);
+      padding: 2rem;
+      border: 1px solid var(--whq-border);
+    }
+    .sidebar-notes h2 { margin-bottom: 1rem; }
+    .sidebar-notes ul { padding-left: 1.25rem; color: var(--whq-text-muted); }
+    .sidebar-notes li { margin-bottom: 0.5rem; }
+    .compare-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .compare-box {
+      padding: 1rem;
+      border-radius: var(--whq-radius-md);
+      font-size: 0.85rem;
+    }
+    .compare-before { background: #0f2744; color: #fff; }
+    .compare-after { background: var(--whq-bg-subtle); border: 1px solid var(--whq-border); }
+
+    @media (max-width: 1100px) {
+      .stat-row, .action-grid, .employee-grid, .detail-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .app-shell { flex-direction: column; }
+      .sidebar { width: 100%; }
+      .stat-row, .action-grid, .employee-grid, .detail-grid, .filter-toolbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="mockup-bar">
+    <span>UX-01 Mockups</span>
+    <button class="active" data-screen="dashboard">ภาพรวม</button>
+    <button data-screen="sidebar">แถบนำทาง</button>
+    <button data-screen="employees">พนักงาน</button>
+    <button data-screen="employee-detail">รายละเอียดพนักงาน</button>
+    <button data-screen="organization">โครงสร้างองค์กร</button>
+  </nav>
+
+  <div class="mockup-frame">
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- DASHBOARD -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <div id="dashboard" class="screen active">
+      <div class="app-shell">
+        <aside class="sidebar" id="sidebar-dashboard"></aside>
+        <div class="main-column">
+          <header class="topbar">
+            <div class="company-pill">
+              🏢
+              <select><option>บริษัท เวิร์คเอชคิว จำกัด (WHQ)</option></select>
+            </div>
+            <div class="topbar-actions">
+              <div class="user-row" style="padding:0">
+                <div class="avatar">ส</div>
+                <div>
+                  <div class="user-name">คุณสมชาย</div>
+                  <div class="user-role">ผู้ดูแลระบบ</div>
+                </div>
+              </div>
+            </div>
+          </header>
+          <main class="page-content">
+            <div class="welcome-row">
+              <div class="welcome-bubble">
+                <h1>สวัสดีตอนเช้า, คุณสมชาย 👋</h1>
+                <p class="subtitle">วันจันทร์ที่ 22 มิ.ย. — วันใหม่ เริ่มต้นได้ดีแน่นอน!</p>
+              </div>
+              <div class="mascot" title="WorkHQ mascot">🌱</div>
+            </div>
+
+            <div class="cheer-banner">
+              <span class="cheer-banner-icon">🎉</span>
+              <div>
+                <strong>ทีมเราทำได้ดีมาก!</strong><br>
+                <span>อนุมัติคำขอครบ 12 รายการสัปดาห์นี้ · เก่งมากเลย</span>
+              </div>
+              <span class="streak-pill">🔥 5 วันติดต่อกัน</span>
+            </div>
+
+            <div class="stat-row">
+              <div class="stat-card">
+                <div class="stat-icon green">👥</div>
+                <div class="stat-value">48</div>
+                <div class="stat-label">พนักงานที่ทำงานอยู่</div>
+                <div class="stat-trend">↑ +2 คนเดือนนี้</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon cool">🏖️</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">ลาวันนี้</div>
+                <div class="stat-trend">พักผ่อนกันเถอะ~</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon warm">📋</div>
+                <div class="stat-value">7</div>
+                <div class="stat-label">รออนุมัติ</div>
+                <div class="stat-trend">ช่วยกันดูหน่อยนะ</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon lavender">✈️</div>
+                <div class="stat-value">42</div>
+                <div class="stat-label">เชื่อม Telegram แล้ว</div>
+                <div class="stat-trend">88% ของทีม ✨</div>
+              </div>
+            </div>
+
+            <div class="section-title"><span class="section-title-emoji">✨</span> ทำอะไรดีวันนี้</div>
+            <div class="action-grid">
+              <a class="action-card" href="#">
+                <div class="action-card-icon">👥</div>
+                <strong>พนักงาน</strong>
+                <span>ดูและจัดการข้อมูลพนักงาน</span>
+              </a>
+              <a class="action-card" href="#">
+                <div class="action-card-icon">💰</div>
+                <strong>เงินเดือน</strong>
+                <span>ตรวจสอบรอบเงินเดือน</span>
+              </a>
+              <a class="action-card" href="#">
+                <span class="action-card-badge">3</span>
+                <div class="action-card-icon">🏖️</div>
+                <strong>การลา</strong>
+                <span>มีคำขอรออนุมัติ 3 รายการ</span>
+              </a>
+              <a class="action-card" href="#">
+                <div class="action-card-icon">⏰</div>
+                <strong>การเข้างาน</strong>
+                <span>บันทึกและ OT</span>
+              </a>
+              <a class="action-card" href="#">
+                <div class="action-card-icon">📊</div>
+                <strong>การตลาด</strong>
+                <span>รายงานและ KPI</span>
+              </a>
+              <a class="action-card" href="#">
+                <div class="action-card-icon">📚</div>
+                <strong>คลังความรู้</strong>
+                <span>นโยบายและคู่มือ</span>
+              </a>
+            </div>
+
+            <div class="section-title"><span class="section-title-emoji">💬</span> กิจกรรมล่าสุด</div>
+            <div class="activity-list">
+              <div class="activity-item">
+                <div class="activity-avatar avatar-pink" style="width:36px;height:36px;font-size:0.85rem">สห</div>
+                <div>
+                  <div class="activity-text">สมหญิง รักงาน ส่งคำขอลา 2 วัน — รออนุมัติอยู่นะ 🌸</div>
+                  <div class="activity-time">10 นาทีที่แล้ว</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-avatar avatar-green" style="width:36px;height:36px;font-size:0.85rem">วม</div>
+                <div>
+                  <div class="activity-text">ต้อนรับสมาชิกใหม่! วิชัย มั่นคง (WHQ-0049) 🎊</div>
+                  <div class="activity-time">1 ชั่วโมงที่แล้ว</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-avatar avatar-blue" style="width:36px;height:36px;font-size:0.85rem">💰</div>
+                <div>
+                  <div class="activity-text">รอบเงินเดือน มิ.ย. 2026 อยู่ในสถานะฉบับร่าง</div>
+                  <div class="activity-time">เมื่อวาน</div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- SIDEBAR SHOWCASE -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <div id="sidebar" class="screen">
+      <div class="sidebar-showcase">
+        <aside class="sidebar" id="sidebar-showcase" style="border-radius: var(--whq-radius-xl);"></aside>
+        <div class="sidebar-notes">
+          <h2>แถบนำทาง — การออกแบบใหม่</h2>
+          <ul>
+            <li>พื้นหลังอุ่น แทน navy sidebar แบบ admin dashboard</li>
+            <li>ไอคอน + ข้อความไทย — ไม่ใช้ ALL CAPS</li>
+            <li>สถานะ active ใช้สีเขียวอ่อน ไม่ใช่ highlight ขาวบน navy</li>
+            <li>กลุ่มเมนู: ทรัพยากรบุคคล, การเข้างาน, การลา, เงินเดือน</li>
+            <li>Tagline: "ระบบปฏิบัติการบริษัท" แทน "Back Office"</li>
+            <li>ผู้ใช้ + ออกจากระบบ อยู่ด้านล่าง sidebar</li>
+          </ul>
+          <div class="compare-row">
+            <div class="compare-box compare-before">
+              <strong>ก่อน</strong><br>
+              Dark navy #0F2744<br>
+              OVERVIEW (uppercase)<br>
+              "Back Office"<br>
+              English labels
+            </div>
+            <div class="compare-box compare-after">
+              <strong>หลัง UX-01</strong><br>
+              Warm cream #FAF8F5<br>
+              หน้าหลัก (sentence case)<br>
+              ระบบปฏิบัติการบริษัท<br>
+              ข้อความไทยทั้งหมด
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- EMPLOYEES -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <div id="employees" class="screen">
+      <div class="app-shell">
+        <aside class="sidebar" id="sidebar-employees"></aside>
+        <div class="main-column">
+          <header class="topbar">
+            <div class="company-pill">🏢 <select><option>บริษัท เวิร์คเอชคิว จำกัด</option></select></div>
+          </header>
+          <main class="page-content">
+            <div class="page-shell">
+              <div class="page-header">
+                <div>
+                  <h1>👥 พนักงาน</h1>
+                  <p class="subtitle">48 คน · บริษัท เวิร์คเอชคิว จำกัด — ทีมเราเก่งมาก!</p>
+                </div>
+                <div class="btn-group">
+                  <a class="btn btn-primary" href="#">✨ เพิ่มพนักงาน</a>
+                  <button class="btn btn-secondary">รีเฟรช</button>
+                </div>
+              </div>
+
+              <div class="filter-toolbar">
+                <div class="field">
+                  <label>ค้นหา</label>
+                  <input type="search" placeholder="ชื่อ, รหัส, อีเมล, เบอร์โทร…" value="">
+                </div>
+                <div class="field">
+                  <label>บริษัท</label>
+                  <select><option>เวิร์คเอชคิว จำกัด</option></select>
+                </div>
+                <div class="field">
+                  <label>สถานะ</label>
+                  <select><option>ทุกสถานะ</option><option>ทำงานอยู่</option><option>ทดลองงาน</option></select>
+                </div>
+              </div>
+
+              <div class="employee-grid">
+                <a class="employee-card" href="#">
+                  <div class="employee-card-header">
+                    <div class="avatar avatar-green">สช</div>
+                    <div class="employee-card-body">
+                      <div class="employee-card-top">
+                        <span class="employee-id">WHQ-0042</span>
+                        <span class="badge badge-active">ทำงานอยู่</span>
+                      </div>
+                      <div class="employee-name">สมชาย ใจดี</div>
+                    </div>
+                  </div>
+                  <div class="employee-role">นักพัฒนาซอฟต์แวร์ · วิศวกรรม</div>
+                  <div class="employee-meta">
+                    <span>@somchai · มีบัญชีเข้าใช้งาน</span>
+                    <span>✈️ เชื่อม Telegram แล้ว</span>
+                  </div>
+                </a>
+                <a class="employee-card" href="#">
+                  <div class="employee-card-header">
+                    <div class="avatar avatar-pink">สห</div>
+                    <div class="employee-card-body">
+                      <div class="employee-card-top">
+                        <span class="employee-id">WHQ-0038</span>
+                        <span class="badge badge-probation">ทดลองงาน</span>
+                      </div>
+                      <div class="employee-name">สมหญิง รักงาน</div>
+                    </div>
+                  </div>
+                  <div class="employee-role">นักออกแบบ UX · ดีไซน์</div>
+                  <div class="employee-meta">
+                    <span>ยังไม่มีบัญชีเข้าใช้งาน</span>
+                    <span>✈️ เชื่อม Telegram แล้ว</span>
+                  </div>
+                </a>
+                <a class="employee-card" href="#">
+                  <div class="employee-card-header">
+                    <div class="avatar avatar-peach">วม</div>
+                    <div class="employee-card-body">
+                      <div class="employee-card-top">
+                        <span class="employee-id">WHQ-0015</span>
+                        <span class="badge badge-active">ทำงานอยู่</span>
+                      </div>
+                      <div class="employee-name">วิชัย มั่นคง</div>
+                    </div>
+                  </div>
+                  <div class="employee-role">ผู้จัดการฝ่ายวิศวกรรม</div>
+                  <div class="employee-meta">
+                    <span>@wichai · มีบัญชีเข้าใช้งาน</span>
+                    <span>✈️ เชื่อม Telegram แล้ว</span>
+                  </div>
+                </a>
+                <a class="employee-card" href="#">
+                  <div class="employee-card-header">
+                    <div class="avatar avatar-lavender">นส</div>
+                    <div class="employee-card-body">
+                      <div class="employee-card-top">
+                        <span class="employee-id">WHQ-0027</span>
+                        <span class="badge badge-active">ทำงานอยู่</span>
+                      </div>
+                      <div class="employee-name">นภา สดใส</div>
+                    </div>
+                  </div>
+                  <div class="employee-role">HR Business Partner · ทรัพยากรบุคคล</div>
+                  <div class="employee-meta">
+                    <span>@napa · มีบัญชีเข้าใช้งาน</span>
+                    <span>ยังไม่เชื่อม Telegram</span>
+                  </div>
+                </a>
+                <a class="employee-card" href="#">
+                  <div class="employee-card-header">
+                    <div class="avatar avatar-blue">กข</div>
+                    <div class="employee-card-body">
+                      <div class="employee-card-top">
+                        <span class="employee-id">WHQ-0049</span>
+                        <span class="badge badge-probation">ทดลองงาน</span>
+                      </div>
+                      <div class="employee-name">กิตติ ขยัน</div>
+                    </div>
+                  </div>
+                  <div class="employee-role">ยังไม่ระบุตำแหน่ง</div>
+                  <div class="employee-meta">
+                    <span>ยังไม่มีบัญชีเข้าใช้งาน</span>
+                    <span>ยังไม่เชื่อม Telegram</span>
+                  </div>
+                </a>
+                <a class="employee-card" href="#">
+                  <div class="employee-card-header">
+                    <div class="avatar avatar-coral">ปด</div>
+                    <div class="employee-card-body">
+                      <div class="employee-card-top">
+                        <span class="employee-id">WHQ-0012</span>
+                        <span class="badge badge-warning">พักงาน</span>
+                      </div>
+                      <div class="employee-name">ประเสริฐ ดีมาก</div>
+                    </div>
+                  </div>
+                  <div class="employee-role">นักบัญชี · การเงิน</div>
+                  <div class="employee-meta">
+                    <span>@prasert · มีบัญชีเข้าใช้งาน</span>
+                    <span>✈️ เชื่อม Telegram แล้ว</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- EMPLOYEE DETAIL -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <div id="employee-detail" class="screen">
+      <div class="app-shell">
+        <aside class="sidebar" id="sidebar-detail"></aside>
+        <div class="main-column">
+          <header class="topbar">
+            <div class="company-pill">🏢 <select><option>บริษัท เวิร์คเอชคิว จำกัด</option></select></div>
+          </header>
+          <main class="page-content">
+            <div class="flash">
+              <span>🎉 อัปเดตสิทธิ์เรียบร้อยแล้ว — เก่งมาก!</span>
+              <button style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:inherit">×</button>
+            </div>
+
+            <a class="back-link" href="#">← กลับไปพนักงาน</a>
+
+            <div class="profile-header">
+              <div class="profile-avatar">สช</div>
+              <div>
+                <h1>สมชาย ใจดี 💚</h1>
+                <p class="subtitle">WHQ-0042 · <span class="badge badge-active">ทำงานอยู่</span></p>
+              </div>
+            </div>
+
+            <div class="detail-grid">
+              <div class="card">
+                <h2>ข้อมูลส่วนตัว</h2>
+                <div class="info-row"><span class="info-label">เบอร์โทร</span><span>081-234-5678</span></div>
+                <div class="info-row"><span class="info-label">สถานะการทำงาน</span><span>ทำงานอยู่</span></div>
+                <div class="info-row"><span class="info-label">ตำแหน่ง</span><span>นักพัฒนาซอฟต์แวร์</span></div>
+                <div class="info-row"><span class="info-label">แผนก</span><span>วิศวกรรม</span></div>
+                <div class="info-row"><span class="info-label">บัญชีเข้าใช้งาน</span><span>@somchai</span></div>
+              </div>
+
+              <div class="card">
+                <h2>บัญชี Telegram</h2>
+                <div class="info-row"><span class="info-label">สถานะ</span><span>✈️ เชื่อมแล้ว</span></div>
+                <div class="info-row"><span class="info-label">ชื่อผู้ใช้</span><span>@somchai_dev</span></div>
+                <div class="info-row"><span class="info-label">รหัส Telegram</span><span style="font-family:monospace;font-size:0.85rem">7283648192</span></div>
+                <div class="info-row"><span class="info-label">เชื่อมเมื่อ</span><span>15 พ.ค. 2026, 09:32</span></div>
+                <div class="info-row"><span class="info-label">ใช้งานล่าสุด</span><span>วันนี้, 08:15</span></div>
+                <div class="btn-group" style="margin-top:1rem">
+                  <button class="btn btn-secondary">รีเซ็ตการเชื่อม</button>
+                  <button class="btn btn-danger">ยกเลิกสิทธิ์</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:1.25rem">
+              <h2>สายบังคับบัญชา</h2>
+              <p class="muted" style="margin-bottom:1rem;font-size:0.88rem">หัวหน้างานและลูกทีมโดยตรง</p>
+              <div class="info-row"><span class="info-label">หัวหน้างาน</span><span><a href="#" style="color:var(--whq-primary);text-decoration:none">วิชัย มั่นคง (WHQ-0015)</a></span></div>
+              <div class="info-row"><span class="info-label">ลูกทีมโดยตรง</span><span>2 คน</span></div>
+              <div style="display:grid;gap:0.5rem;margin-top:0.75rem">
+                <div class="card" style="padding:0.75rem 1rem;box-shadow:none">
+                  <strong style="font-size:0.9rem">กานต์ เก่งมาก</strong>
+                  <span class="muted" style="font-size:0.82rem"> · นักพัฒนา · WHQ-0044</span>
+                </div>
+                <div class="card" style="padding:0.75rem 1rem;box-shadow:none">
+                  <strong style="font-size:0.9rem">มานี มีสุข</strong>
+                  <span class="muted" style="font-size:0.82rem"> · นักพัฒนา · WHQ-0046</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:1.25rem">
+              <h2>สิทธิ์การใช้งาน</h2>
+              <p class="muted" style="margin-bottom:1rem;font-size:0.88rem">บทบาทและขอบเขตสิทธิ์ของพนักงาน</p>
+              <div style="margin-bottom:1rem">
+                <div class="muted" style="font-size:0.78rem;margin-bottom:0.5rem">บทบาทในองค์กร</div>
+                <div class="role-grid">
+                  <div class="role-card"><strong>พนักงาน</strong><span>สิทธิ์พื้นฐาน</span></div>
+                  <div class="role-card selected"><strong>หัวหน้าทีม</strong><span>ดูแลทีมและอนุมัติเบื้องต้น</span></div>
+                  <div class="role-card"><strong>ผู้จัดการ</strong><span>จัดการแผนกและอนุมัติ</span></div>
+                </div>
+              </div>
+              <div class="info-row"><span class="info-label">การเห็นข้อมูลเงินเดือน</span><span>เฉพาะตนเอง</span></div>
+              <div class="btn-group" style="margin-top:1rem">
+                <button class="btn btn-primary">บันทึก</button>
+                <button class="btn btn-secondary">ยกเลิก</button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- ORGANIZATION -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <div id="organization" class="screen">
+      <div class="app-shell">
+        <aside class="sidebar" id="sidebar-org"></aside>
+        <div class="main-column">
+          <header class="topbar">
+            <div class="company-pill">🏢 <select><option>บริษัท เวิร์คเอชคิว จำกัด</option></select></div>
+          </header>
+          <main class="page-content">
+            <div class="page-shell">
+              <div class="page-header">
+                <div>
+                  <h1>🏢 โครงสร้างองค์กร</h1>
+                  <p class="subtitle">สายบังคับบัญชาของ บริษัท เวิร์คเอชคิว — ทีมเราสร้างด้วยกัน 🌳</p>
+                </div>
+                <button class="btn btn-secondary">รีเฟรช</button>
+              </div>
+
+              <div class="filter-toolbar" style="grid-template-columns:1fr">
+                <div class="field">
+                  <label>บริษัท</label>
+                  <select><option>เวิร์คเอชคิว จำกัด</option></select>
+                </div>
+              </div>
+
+              <div class="org-tree">
+                <div class="org-node">
+                  <div class="org-node-header">
+                    <div class="org-toggle">▾</div>
+                    <div>
+                      <div class="org-name">คุณวิชัย มั่นคง</div>
+                      <div class="org-meta">
+                        <span class="org-role-badge">ผู้บริหาร</span>
+                        <span>WHQ-0001</span>
+                        <span>CEO</span>
+                        <span>4 คนในทีม</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="org-children">
+                    <div class="org-node">
+                      <div class="org-node-header">
+                        <div class="org-toggle">▾</div>
+                        <div>
+                          <div class="org-name">วิชัย มั่นคง</div>
+                          <div class="org-meta">
+                            <span class="org-role-badge">ผู้จัดการ</span>
+                            <span>WHQ-0015</span>
+                            <span>ผู้จัดการฝ่ายวิศวกรรม</span>
+                            <span>3 คนในทีม</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="org-children">
+                        <div class="org-node">
+                          <div class="org-node-header">
+                            <div class="org-toggle">▾</div>
+                            <div>
+                              <div class="org-name">สมชาย ใจดี</div>
+                              <div class="org-meta">
+                                <span class="org-role-badge">หัวหน้าทีม</span>
+                                <span>WHQ-0042</span>
+                                <span>นักพัฒนาซอฟต์แวร์</span>
+                                <span>2 คนในทีม</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="org-children">
+                            <div class="org-node">
+                              <div class="org-node-header">
+                                <div class="org-toggle" style="opacity:0.35">·</div>
+                                <div>
+                                  <div class="org-name">กานต์ เก่งมาก</div>
+                                  <div class="org-meta">
+                                    <span>WHQ-0044</span>
+                                    <span>นักพัฒนา</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="org-node">
+                              <div class="org-node-header">
+                                <div class="org-toggle" style="opacity:0.35">·</div>
+                                <div>
+                                  <div class="org-name">มานี มีสุข</div>
+                                  <div class="org-meta">
+                                    <span>WHQ-0046</span>
+                                    <span>นักพัฒนา</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="org-node">
+                      <div class="org-node-header">
+                        <div class="org-toggle">▸</div>
+                        <div>
+                          <div class="org-name">นภา สดใส</div>
+                          <div class="org-meta">
+                            <span class="org-role-badge">ผู้จัดการ</span>
+                            <span>WHQ-0027</span>
+                            <span>HR Business Partner</span>
+                            <span>5 คนในทีม</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const SIDEBAR_HTML = `
+      <div class="brand">
+        <div class="brand-logo">
+          <div class="brand-icon">🌱</div>
+          <div>
+            <strong>WorkHQ</strong>
+            <span>ระบบปฏิบัติการบริษัท ✨</span>
+          </div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-group">
+          <div class="nav-group-label">หน้าหลัก</div>
+          <a class="nav-link" data-nav="dashboard"><span class="nav-icon">🏠</span> ภาพรวม</a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">ทรัพยากรบุคคล</div>
+          <a class="nav-link" data-nav="employees"><span class="nav-icon">👥</span> พนักงาน</a>
+          <a class="nav-link" data-nav="organization"><span class="nav-icon">🏢</span> โครงสร้างองค์กร</a>
+          <a class="nav-link"><span class="nav-icon">📝</span> รออนุมัติสมัคร</a>
+          <a class="nav-link"><span class="nav-icon">✈️</span> บัญชี Telegram</a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">การเข้างาน</div>
+          <a class="nav-link"><span class="nav-icon">⏰</span> บันทึกประจำวัน</a>
+          <a class="nav-link"><span class="nav-icon">⏱️</span> อนุมัติ OT</a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">การลา</div>
+          <a class="nav-link"><span class="nav-icon">🏖️</span> คำขอลา</a>
+          <a class="nav-link"><span class="nav-icon">📅</span> เลื่อนวันลา</a>
+          <a class="nav-link"><span class="nav-icon">🔄</span> สลับกะ</a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">เงินเดือน</div>
+          <a class="nav-link"><span class="nav-icon">💰</span> รอบเงินเดือน</a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">ตั้งค่า</div>
+          <a class="nav-link"><span class="nav-icon">⚙️</span> ตั้งค่า HR</a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-row">
+          <div class="avatar">ส</div>
+          <div>
+            <div class="user-name">คุณสมชาย</div>
+            <div class="user-role">ผู้ดูแลระบบ</div>
+          </div>
+        </div>
+        <button class="logout-btn">ออกจากระบบ</button>
+      </div>
+    `;
+
+    const sidebarTargets = [
+      'sidebar-dashboard', 'sidebar-showcase', 'sidebar-employees',
+      'sidebar-detail', 'sidebar-org'
+    ];
+    sidebarTargets.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = SIDEBAR_HTML;
+    });
+
+    function setActiveNav(screen) {
+      document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.dataset.nav === screen) link.classList.add('active');
+      });
+      const navMap = {
+        dashboard: 'dashboard',
+        employees: 'employees',
+        'employee-detail': 'employees',
+        organization: 'organization',
+        sidebar: 'dashboard'
+      };
+      const active = navMap[screen] || 'dashboard';
+      document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+        if (link.dataset.nav === active) link.classList.add('active');
+      });
+    }
+
+    document.querySelectorAll('.mockup-bar button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const screen = btn.dataset.screen;
+        document.querySelectorAll('.mockup-bar button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screen).classList.add('active');
+        setActiveNav(screen);
+      });
+    });
+
+    setActiveNav('dashboard');
+  </script>
+</body>
+</html>

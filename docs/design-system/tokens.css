@@ -1,0 +1,139 @@
+/**
+ * WorkHQ UX-01 — Global Design Tokens
+ * Friendly Company Operating System · Thai-first UI
+ *
+ * Usage: import in app root after Tailwind base, or reference in CSS modules.
+ * Do not wire into production app until UX-01 implementation phase.
+ */
+
+:root {
+  /* ── Color: Warm Neutrals ───────────────────────────────────────────── */
+  --whq-bg: #f7f4ef;
+  --whq-bg-subtle: #faf8f5;
+  --whq-bg-elevated: #ffffff;
+  --whq-bg-sidebar: #faf8f5;
+  --whq-bg-sidebar-hover: #f0ebe3;
+  --whq-bg-sidebar-active: #ebe4da;
+
+  --whq-border: #ebe6df;
+  --whq-border-strong: #d9d0c4;
+  --whq-border-focus: #6b9b7a;
+
+  --whq-text: #2c2419;
+  --whq-text-secondary: #5c5348;
+  --whq-text-muted: #7a6f62;
+  --whq-text-inverse: #ffffff;
+  --whq-text-link: #4a7c59;
+
+  /* ── Color: Brand & Accent ──────────────────────────────────────────── */
+  --whq-primary: #6b9b7a;
+  --whq-primary-hover: #5a8568;
+  --whq-primary-subtle: #e8f0ea;
+  --whq-primary-text: #2e4a36;
+
+  --whq-secondary: #8b7355;
+  --whq-secondary-hover: #756048;
+  --whq-secondary-subtle: #f5f1eb;
+
+  --whq-accent-warm: #e8a87c;
+  --whq-accent-warm-subtle: #fdf3eb;
+  --whq-accent-cool: #7eb8c9;
+  --whq-accent-cool-subtle: #edf6f9;
+
+  /* ── Color: Semantic ────────────────────────────────────────────────── */
+  --whq-success: #4a7c59;
+  --whq-success-bg: #e8f0ea;
+  --whq-success-border: #c8dccf;
+
+  --whq-warning: #c4923a;
+  --whq-warning-bg: #fdf6e8;
+  --whq-warning-border: #f0ddb8;
+
+  --whq-danger: #c45c5c;
+  --whq-danger-bg: #fdf0f0;
+  --whq-danger-border: #f0c8c8;
+
+  --whq-info: #5a8fb8;
+  --whq-info-bg: #edf4fa;
+  --whq-info-border: #c8dced;
+
+  /* ── Color: Status (Employment) ─────────────────────────────────────── */
+  --whq-status-active-bg: #e8f0ea;
+  --whq-status-active-text: #2e4a36;
+  --whq-status-probation-bg: #edf4fa;
+  --whq-status-probation-text: #3d5f7a;
+  --whq-status-suspended-bg: #fdf6e8;
+  --whq-status-suspended-text: #8a6520;
+  --whq-status-terminated-bg: #fdf0f0;
+  --whq-status-terminated-text: #8a3d3d;
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  --whq-font-sans: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
+  --whq-font-display: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
+  --whq-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --whq-text-xs: 0.75rem;      /* 12px */
+  --whq-text-sm: 0.8125rem;    /* 13px */
+  --whq-text-base: 0.9375rem;  /* 15px — comfortable Thai reading */
+  --whq-text-lg: 1.0625rem;    /* 17px */
+  --whq-text-xl: 1.25rem;      /* 20px */
+  --whq-text-2xl: 1.5rem;      /* 24px */
+  --whq-text-3xl: 1.875rem;    /* 30px */
+
+  --whq-leading-tight: 1.25;
+  --whq-leading-normal: 1.55;
+  --whq-leading-relaxed: 1.7;
+
+  --whq-font-normal: 400;
+  --whq-font-medium: 500;
+  --whq-font-semibold: 600;
+  --whq-font-bold: 700;
+
+  /* ── Spacing (4px base) ─────────────────────────────────────────────── */
+  --whq-space-0: 0;
+  --whq-space-1: 0.25rem;
+  --whq-space-2: 0.5rem;
+  --whq-space-3: 0.75rem;
+  --whq-space-4: 1rem;
+  --whq-space-5: 1.25rem;
+  --whq-space-6: 1.5rem;
+  --whq-space-8: 2rem;
+  --whq-space-10: 2.5rem;
+  --whq-space-12: 3rem;
+  --whq-space-16: 4rem;
+
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  --whq-radius-sm: 8px;
+  --whq-radius-md: 12px;
+  --whq-radius-lg: 16px;
+  --whq-radius-xl: 20px;
+  --whq-radius-full: 9999px;
+
+  /* ── Shadows (soft, cozy — not enterprise flat) ─────────────────────── */
+  --whq-shadow-xs: 0 1px 2px rgba(44, 36, 25, 0.04);
+  --whq-shadow-sm: 0 2px 8px rgba(44, 36, 25, 0.06);
+  --whq-shadow-md: 0 4px 16px rgba(44, 36, 25, 0.08);
+  --whq-shadow-lg: 0 8px 32px rgba(44, 36, 25, 0.1);
+  --whq-shadow-card: 0 2px 12px rgba(44, 36, 25, 0.05);
+  --whq-shadow-card-hover: 0 6px 24px rgba(107, 155, 122, 0.12);
+
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  --whq-sidebar-width: 272px;
+  --whq-sidebar-collapsed: 72px;
+  --whq-topbar-height: 64px;
+  --whq-content-max: 1280px;
+  --whq-page-padding: var(--whq-space-8);
+
+  /* ── Motion ─────────────────────────────────────────────────────────── */
+  --whq-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --whq-duration-fast: 120ms;
+  --whq-duration-normal: 200ms;
+  --whq-duration-slow: 320ms;
+
+  /* ── Z-index ────────────────────────────────────────────────────────── */
+  --whq-z-sidebar: 40;
+  --whq-z-topbar: 30;
+  --whq-z-dropdown: 50;
+  --whq-z-modal: 100;
+  --whq-z-toast: 110;
+}

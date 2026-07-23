@@ -1,0 +1,184 @@
+# ============================================================================
+# WorkHQ — docker-compose.prod.yml (production overrides)
+# Apply on top of the base compose file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Changes from dev:
+#   * NODE_ENV=production
+#   * Secrets come from environment variables, NOT an .env file
+#   * Resource limits on all services
+#   * PostgreSQL bound only to internal network (no host port)
+#   * Redis password required
+#   * Nginx reverse proxy added (TLS termination, rate limiting)
+#   * Named external network for cross-service communication
+#   * Restart policy: always
+#
+# Required environment variables (set in your deployment platform):
+#   DATABASE_URL          postgresql://user:pass@host:5432/dbname
+#   REDIS_URL             redis://:pass@redis:6379
+#   REDIS_PASSWORD        (matches the redis service password)
+#   JWT_SECRET            (minimum 64 chars in production)
+#   TELEGRAM_BOT_TOKEN    (from @BotFather)
+#   TELEGRAM_WEBHOOK_URL  https://your-domain.com/telegram/webhook
+#   TELEGRAM_WEBHOOK_SECRET (random string to verify Telegram payloads)
+#   CORS_ORIGINS          https://your-domain.com
+# ============================================================================
+
+services:
+
+  # ── Database migrations (one-shot; never run inside API replicas) ─────────
+  migrate:
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in production}
+
+  # ── PostgreSQL (production hardening) ────────────────────────────────────
+  postgres:
+    restart: always
+    # Do NOT expose port 5432 to host in production
+    ports: []
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-workhq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
+      POSTGRES_DB:       ${POSTGRES_DB:-workhq}
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Schemas init script still needed on first boot
+      - ./docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/01-schemas.sql:ro
+
+  # ── Redis (with password) ─────────────────────────────────────────────────
+  redis:
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
+    # Do NOT expose port 6379 to host in production
+    ports: []
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # ── WorkHQ API (production settings) ────────────────────────────────────
+  api:
+    restart: always
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file: []
+    # Production: no port binding — Nginx proxies to the container
+    ports: []
+    environment:
+      NODE_ENV:     production
+      PORT:         3000
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in production}
+      REDIS_URL:    ${REDIS_URL:-redis://:${REDIS_PASSWORD}@redis:6379}
+      JWT_SECRET:   ${JWT_SECRET:?JWT_SECRET must be set in production}
+      JWT_ACCESS_TTL:  ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      LOG_LEVEL:    ${LOG_LEVEL:-warn}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set in production}
+      TELEGRAM_BOT_TOKEN:     ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_URL:   ${TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      ANTHROPIC_API_KEY:      ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY:           ${OPENAI_API_KEY:-}
+      SENTRY_DSN:             ${SENTRY_DSN:-}
+      METRICS_TOKEN:          ${METRICS_TOKEN:?METRICS_TOKEN must be set in production}
+      DOCUMENT_STORAGE_BASE_PATH: /var/workhq/storage/documents
+    volumes:
+      - document_storage:/var/workhq/storage
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  # ── WorkHQ Web ────────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        VITE_API_BASE: /api/v1
+    container_name: workhq-web
+    restart: always
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  # ── Daily PostgreSQL backups ──────────────────────────────────────────────
+  backup-cron:
+    restart: always
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in production}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 2 * * *}
+    volumes:
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  # ── Nginx reverse proxy ───────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: workhq-nginx
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro        # TLS certificates (Let's Encrypt or similar)
+      - nginx_cache:/var/cache/nginx
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+volumes:
+  postgres_data:
+    external: true     # Created once by ops: docker volume create workhq_postgres_data
+  redis_data:
+    external: true     # Created once by ops: docker volume create workhq_redis_data
+  document_storage:
+    external: true     # Created once by ops: docker volume create workhq_document_storage
+  nginx_cache:

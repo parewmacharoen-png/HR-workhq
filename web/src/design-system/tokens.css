@@ -1,0 +1,51 @@
+/**
+ * WorkHQ UX-01 — Global Design Tokens
+ */
+:root {
+  --whq-bg: #fdf9f4;
+  --whq-bg-subtle: #fffbf7;
+  --whq-bg-elevated: #ffffff;
+  --whq-bg-sidebar: #fffbf7;
+  --whq-border: #f0e8df;
+  --whq-border-strong: #e4d9ce;
+  --whq-border-focus: #6db88a;
+  --whq-text: #3d2f24;
+  --whq-text-secondary: #5c5348;
+  --whq-text-muted: #9a8578;
+  --whq-text-inverse: #ffffff;
+  --whq-text-link: #4a7c59;
+  --whq-primary: #6db88a;
+  --whq-primary-hover: #5da678;
+  --whq-primary-subtle: #edf7f0;
+  --whq-primary-text: #2d5a3d;
+  --whq-secondary: #d4956a;
+  --whq-secondary-subtle: #fff4eb;
+  --whq-accent-warm: #f5b88a;
+  --whq-accent-warm-subtle: #fff4eb;
+  --whq-accent-cool: #8ecae6;
+  --whq-accent-cool-subtle: #eef8fc;
+  --whq-accent-lavender-subtle: #f5f0fd;
+  --whq-success: #4a7c59;
+  --whq-success-bg: #edf7f0;
+  --whq-success-text: #2d5a3d;
+  --whq-warning-bg: #fff8ed;
+  --whq-warning-text: #a07030;
+  --whq-danger: #c45c5c;
+  --whq-danger-bg: #fff0f0;
+  --whq-danger-text: #a05050;
+  --whq-info-bg: #eef8fc;
+  --whq-info-text: #3d6a80;
+  --whq-font-sans: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
+  --whq-radius-sm: 8px;
+  --whq-radius-md: 14px;
+  --whq-radius-lg: 20px;
+  --whq-radius-xl: 24px;
+  --whq-radius-full: 9999px;
+  --whq-shadow-card: 0 4px 20px rgba(61, 47, 36, 0.06);
+  --whq-shadow-card-hover: 0 8px 32px rgba(109, 184, 138, 0.18);
+  --whq-shadow-soft: 0 2px 16px rgba(245, 184, 138, 0.15);
+  --whq-sidebar-width: 272px;
+  --whq-topbar-height: 64px;
+  --whq-content-max: 1280px;
+  --whq-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}

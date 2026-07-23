@@ -1,0 +1,4 @@
+ALTER TABLE employee.employees
+  ADD COLUMN IF NOT EXISTS department VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS position VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS employment_type VARCHAR(40);

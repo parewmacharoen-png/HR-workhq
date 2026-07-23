@@ -1,0 +1,2 @@
+# Daily backup at 02:00 UTC (override via BACKUP_CRON_SCHEDULE env at runtime)
+0 2 * * * root /usr/local/bin/workhq-backup.sh >> /var/log/workhq-backup.log 2>&1

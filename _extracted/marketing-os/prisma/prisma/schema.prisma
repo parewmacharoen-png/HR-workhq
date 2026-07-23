@@ -1,0 +1,3856 @@
+// ============================================================================
+// WorkHQ — Prisma Schema (Phase 4)
+// Multi-schema PostgreSQL 16. Mirrors workhq_schema.sql exactly.
+// Soft delete: deletedAt / deletedBy on business models (filter in app layer).
+// Note: EXCLUDE constraints, partial-unique WHERE clauses, and append-only
+// triggers live in raw SQL migrations — Prisma cannot express them. They are
+// documented inline as /// NOTE comments where relevant.
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema", "postgresqlExtensions"]
+  output          = "../backend/node_modules/.prisma/client"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, btree_gist, vector]
+  schemas    = ["organization", "employee", "permission", "attendance", "leave", "workflow", "payroll", "commission", "finance", "performance", "recruitment", "referral", "marketing", "training", "assets", "knowledge", "ai", "reporting", "telegram", "system"]
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum EmploymentStatus {
+  probation
+  active
+  suspended
+  terminated
+
+  @@map("employment_status")
+  @@schema("employee")
+}
+
+enum DocumentType {
+  contract
+  national_id
+  certificate
+  resume
+  other
+
+  @@map("document_type")
+  @@schema("employee")
+}
+
+enum RoleLevel {
+  employee
+  sub_leader
+  big_leader
+
+  @@map("role_level")
+  @@schema("organization")
+}
+
+enum UserType {
+  human
+  system
+  ai
+
+  @@map("user_type")
+  @@schema("permission")
+}
+
+enum ScopeType {
+  all
+  company
+  team
+  self
+
+  @@map("scope_type")
+  @@schema("permission")
+}
+
+enum Surface {
+  telegram
+  web
+
+  @@map("surface")
+  @@schema("permission")
+}
+
+enum AttendanceRecordStatus {
+  present
+  absent
+  incomplete
+  corrected
+
+  @@map("record_status")
+  @@schema("attendance")
+}
+
+enum AttendanceRecordSource {
+  telegram
+  web
+  correction
+
+  @@map("record_source")
+  @@schema("attendance")
+}
+
+enum ReminderType {
+  break_start
+  break_end
+  missing_checkin
+  missing_checkout
+
+  @@map("reminder_type")
+  @@schema("attendance")
+}
+
+enum AttendanceApprovalStatus {
+  pending
+  approved
+  rejected
+
+  @@map("approval_status")
+  @@schema("attendance")
+}
+
+enum AccrualPeriod {
+  payroll_cycle
+  year
+  half_year
+
+  @@map("accrual_period")
+  @@schema("leave")
+}
+
+enum LeaveRequestStatus {
+  pending
+  approved
+  rejected
+  returned
+
+  @@map("request_status")
+  @@schema("leave")
+}
+
+enum LeaveRescheduleStatus {
+  pending
+  approved
+  rejected
+
+  @@map("reschedule_status")
+  @@schema("leave")
+}
+
+enum LeaveShiftSwapStatus {
+  pending_partner
+  pending_approval
+  approved
+  rejected
+
+  @@map("shift_swap_status")
+  @@schema("leave")
+}
+
+enum WorkflowEntityType {
+  leave
+  leave_reschedule
+  leave_shift_swap
+  attendance_correction
+  overtime
+  payroll_adjustment
+  bonus
+  commission_adjustment
+  deposit_refund
+  advance
+  performance_review
+
+  @@map("entity_type")
+  @@schema("workflow")
+}
+
+enum ApproverRule {
+  sub_leader
+  big_leader
+  hr
+  finance
+  owner
+  role
+
+  @@map("approver_rule")
+  @@schema("workflow")
+}
+
+enum WorkflowInstanceStatus {
+  pending
+  approved
+  rejected
+  returned
+  escalated
+  cancelled
+
+  @@map("instance_status")
+  @@schema("workflow")
+}
+
+enum WorkflowActionType {
+  approve
+  reject
+  return
+  escalate
+  override
+  cancel
+
+  @@map("action_type")
+  @@schema("workflow")
+}
+
+enum PayrollCycleStatus {
+  open
+  locked
+  paid
+
+  @@map("cycle_status")
+  @@schema("payroll")
+}
+
+enum PayrollItemType {
+  salary
+  ot
+  meal_allowance
+  cross_border
+  bonus
+  commission
+  commission_adjustment
+  referral
+  deposit
+  manual_adjustment
+
+  @@map("item_type")
+  @@schema("payroll")
+}
+
+enum PayrollSourceRefType {
+  overtime
+  commission
+  referral
+  marketing_commission
+  admin_commission
+  referral_commission
+  recruitment_commission
+  commission_adjustment
+  holiday_conversion
+  deposit
+  advance
+  manual
+
+  @@map("source_ref_type")
+  @@schema("payroll")
+}
+
+enum CommissionMetric {
+  unique_candidates
+
+  @@map("metric")
+  @@schema("commission")
+}
+
+enum CommissionRecordStatus {
+  accrued
+  hold
+  redistributed
+  paid
+
+  @@map("record_status")
+  @@schema("commission")
+}
+
+enum CommissionHoldResolution {
+  released
+  redistributed
+  pending
+
+  @@map("hold_resolution")
+  @@schema("commission")
+}
+
+enum MarketingCommissionCycleStatus {
+  calculated
+  finalized
+
+  @@map("marketing_cycle_status")
+  @@schema("commission")
+}
+
+enum MarketingCommissionMemberStatus {
+  pending_pay
+  paid
+  carried_forward
+  no_payout
+
+  @@map("marketing_member_status")
+  @@schema("commission")
+}
+
+enum MarketingCommissionCarryStatus {
+  pending
+  recovered
+  expired
+
+  @@map("marketing_carry_status")
+  @@schema("commission")
+}
+
+enum MarketingCommissionRedistributionType {
+  ramp_difference
+  expired_carry
+
+  @@map("marketing_redistribution_type")
+  @@schema("commission")
+}
+
+enum AdminOfficeType {
+  front_office
+  back_office
+
+  @@map("admin_office_type")
+  @@schema("commission")
+}
+
+enum AdminShiftType {
+  day
+  night
+
+  @@map("admin_shift_type")
+  @@schema("commission")
+}
+
+enum AdminCommissionCycleStatus {
+  calculated
+  finalized
+
+  @@map("admin_cycle_status")
+  @@schema("commission")
+}
+
+enum CommissionCycleType {
+  marketing
+  admin
+  referral
+  recruitment
+
+  @@map("commission_cycle_type")
+  @@schema("commission")
+}
+
+enum CommissionCycleStatus {
+  draft
+  approved
+  finalized
+  locked
+
+  @@map("commission_cycle_status")
+  @@schema("commission")
+}
+
+enum CommissionCycleAuditAction {
+  approve
+  finalize
+  lock
+
+  @@map("commission_cycle_audit_action")
+  @@schema("commission")
+}
+
+enum CommissionAdjustmentStatus {
+  draft
+  submitted
+  approved
+  rejected
+  applied
+
+  @@map("commission_adjustment_status")
+  @@schema("commission")
+}
+
+enum CommissionAdjustmentDirection {
+  increase
+  decrease
+
+  @@map("commission_adjustment_direction")
+  @@schema("commission")
+}
+
+enum CommissionAdjustmentSourceType {
+  marketing_member
+  admin_member
+  recruitment_record
+  referral
+
+  @@map("commission_adjustment_source_type")
+  @@schema("commission")
+}
+
+enum CommissionDeclarationStatus {
+  draft
+  submitted
+  hr_review
+  approved
+  rejected
+
+  @@map("commission_declaration_status")
+  @@schema("commission")
+}
+
+enum CommissionDeclarationAssignmentType {
+  primary
+  secondary
+
+  @@map("commission_declaration_assignment_type")
+  @@schema("commission")
+}
+
+enum CommissionDeclarationMethod {
+  team_pool
+  big_leader_split
+  none
+  unsure
+
+  @@map("commission_declaration_method")
+  @@schema("commission")
+}
+
+enum CommissionAdjustmentAuditAction {
+  submit
+  approve
+  reject
+  apply
+
+  @@map("commission_adjustment_audit_action")
+  @@schema("commission")
+}
+
+enum AdminCommissionMemberStatus {
+  pending_pay
+  paid
+  no_payout
+
+  @@map("admin_member_status")
+  @@schema("commission")
+}
+
+enum AdminCommissionRedistributionType {
+  leave_penalty
+
+  @@map("admin_redistribution_type")
+  @@schema("commission")
+}
+
+enum FinanceRequestStatus {
+  pending
+  approved
+  rejected
+  recovered
+  refunded
+
+  @@map("request_status")
+  @@schema("finance")
+}
+
+enum LedgerDirection {
+  debit
+  credit
+
+  @@map("ledger_direction")
+  @@schema("finance")
+}
+
+enum PerformanceCycleStatus {
+  open
+  locked
+  finalized
+
+  @@map("cycle_status")
+  @@schema("performance")
+}
+
+enum PerformanceDimension {
+  attendance
+  recruitment
+  discipline
+  manager_review
+  owner_review
+
+  @@map("dimension")
+  @@schema("performance")
+}
+
+enum EvaluationStatus {
+  draft
+  submitted
+  finalized
+
+  @@map("eval_status")
+  @@schema("performance")
+}
+
+enum PerformanceScorer {
+  system
+  manager
+  owner
+  ai
+
+  @@map("scorer")
+  @@schema("performance")
+}
+
+enum CandidateStage {
+  new
+  screened
+  interview
+  offer
+  hired
+  rejected
+
+  @@map("candidate_stage")
+  @@schema("recruitment")
+}
+
+enum QualifyingCondition {
+  probation_pass
+  three_months
+
+  @@map("qualifying_condition")
+  @@schema("referral")
+}
+
+enum ReferralStatus {
+  pending
+  qualified
+  paid
+  rejected
+
+  @@map("referral_status")
+  @@schema("referral")
+}
+
+enum TrainingAssignmentStatus {
+  assigned
+  in_progress
+  completed
+  overdue
+
+  @@map("assignment_status")
+  @@schema("training")
+}
+
+enum AssetStatus {
+  available
+  assigned
+  maintenance
+  retired
+
+  @@map("asset_status")
+  @@schema("assets")
+}
+
+enum AssetCategory {
+  notebook
+  phone
+  tablet
+  vehicle
+  equipment
+
+  @@map("asset_category")
+  @@schema("assets")
+}
+
+enum AssetEventType {
+  created
+  updated
+  assigned
+  returned
+  damage_reported
+  damage_resolved
+  status_changed
+  retired
+
+  @@map("asset_event_type")
+  @@schema("assets")
+}
+
+enum AssetDamageSeverity {
+  minor
+  moderate
+  major
+  total
+
+  @@map("asset_damage_severity")
+  @@schema("assets")
+}
+
+enum AiMessageRole {
+  user
+  assistant
+  system
+  tool
+
+  @@map("message_role")
+  @@schema("ai")
+}
+
+enum AiChannel {
+  telegram
+  web
+
+  @@map("channel")
+  @@schema("ai")
+}
+
+enum SnapshotType {
+  morning_brief
+  evening_brief
+  executive
+  profit
+  forecast
+  risk
+  owner
+  company
+  pending_approval
+
+  @@map("snapshot_type")
+  @@schema("reporting")
+}
+
+enum TelegramDirection {
+  inbound
+  outbound
+
+  @@map("direction")
+  @@schema("telegram")
+}
+
+enum FormulaReturnType {
+  number
+  money
+  boolean
+
+  @@map("formula_return_type")
+  @@schema("system")
+}
+
+enum JobStatus {
+  running
+  success
+  failed
+
+  @@map("job_status")
+  @@schema("system")
+}
+
+enum BackupType {
+  full
+  incremental
+
+  @@map("backup_type")
+  @@schema("system")
+}
+// ============================================================================
+// DOMAIN 1: ORGANIZATION
+// ============================================================================
+
+model Company {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @db.VarChar(8)
+  name      String   @db.VarChar(120)
+  legalName String?  @map("legal_name") @db.VarChar(200)
+  timezone  String   @default("Asia/Bangkok") @db.VarChar(40)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy String?  @map("deleted_by") @db.Uuid
+
+  teams                 Team[]
+  assignments           EmployeeAssignment[]
+  scopeGrants           ScopeGrant[]
+  featureFlags          FeatureFlag[]
+  workflowInstances     WorkflowInstance[]
+  attendanceRecords     AttendanceRecord[]
+  overtimeRecords       OvertimeRecord[]
+  leaveRequests         LeaveRequest[]
+  leaveRescheduleRequests LeaveRescheduleRequest[]
+  leaveShiftSwapRequests  LeaveShiftSwapRequest[]
+  holidayConversions    HolidayConversion[]
+  payrollCycles         PayrollCycle[]
+  payrollItems          PayrollItem[]
+  salaryHistory         SalaryHistory[]
+  deposits              Deposit[]
+  commissionRecords     CommissionRecord[]
+  bigLeaderLedgers      BigLeaderLedger[]
+  marketingCommissionCycles MarketingCommissionCycle[]
+  marketingCommissionCarryForwards MarketingCommissionCarryForward[]
+  marketingDailyReports         MarketingDailyReport[]
+  marketingReportAuditLogs      MarketingReportAuditLog[]
+  marketingCycleLocks           MarketingCycleLock[]
+  marketingExpenses             MarketingExpense[]
+  marketingTeams                MarketingTeam[]
+  marketingTeamMembers          MarketingTeamMember[]
+  adminCommissionCycles AdminCommissionCycle[]
+  adminCommissionEmployeeProfiles AdminCommissionEmployeeProfile[]
+  adminCommissionShiftSegments AdminCommissionShiftSegment[]
+  commissionCycles      CommissionCycle[]
+  commissionAdjustments CommissionAdjustmentRequest[]
+  commissionDeclarations CommissionDeclaration[]
+  commissionDeclarationAssignments CommissionDeclarationAssignment[]
+  advanceRequests       AdvanceRequest[]
+  depositRefunds        DepositRefund[]
+  ledgerEntries         LedgerEntry[]
+  performanceCycles     PerformanceCycle[]
+  evaluations           Evaluation[]
+  candidates            Candidate[]
+  referrals             Referral[]
+  costCenters           CostCenter[]
+  budgets               Budget[]
+  financialTransactions FinancialTransaction[]
+  assets                Asset[]
+  kbArticles            KbArticle[]
+  reportSnapshots       ReportSnapshot[]
+  kpiDailyFacts         KpiDailyFact[]
+  announcements         Announcement[]
+  systemSettings        SystemSetting[]
+  ruleConfigProfiles    RuleConfigProfile[]
+
+  /// NOTE: unique (code) WHERE deleted_at IS NULL — partial unique in raw SQL
+  @@index([code])
+  @@map("companies")
+  @@schema("organization")
+}
+
+model Function {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @db.VarChar(40)
+  name        String   @db.VarChar(120)
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?  @map("deleted_by") @db.Uuid
+
+  teams              Team[]
+  assignments        EmployeeAssignment[]
+  commissionTargets  CommissionTarget[]
+
+  /// NOTE: unique (code) WHERE deleted_at IS NULL — partial unique in raw SQL
+  @@index([code])
+  @@map("functions")
+  @@schema("organization")
+}
+
+model Team {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId           String   @map("company_id") @db.Uuid
+  functionId          String?  @map("function_id") @db.Uuid
+  name                String   @db.VarChar(120)
+  parentTeamId        String?  @map("parent_team_id") @db.Uuid
+  bigLeaderEmployeeId String?  @map("big_leader_employee_id") @db.Uuid
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy           String?  @map("created_by") @db.Uuid
+  updatedBy           String?  @map("updated_by") @db.Uuid
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy           String?  @map("deleted_by") @db.Uuid
+
+  company      Company   @relation(fields: [companyId], references: [id])
+  function     Function? @relation(fields: [functionId], references: [id])
+  parentTeam   Team?     @relation("TeamHierarchy", fields: [parentTeamId], references: [id])
+  childTeams   Team[]    @relation("TeamHierarchy")
+  bigLeader    Employee? @relation("TeamBigLeader", fields: [bigLeaderEmployeeId], references: [id])
+
+  assignments       EmployeeAssignment[]
+  scopeGrants       ScopeGrant[]
+  redistributions   CommissionRedistribution[]
+  announcements     Announcement[]
+
+  /// NOTE: unique (company_id, name) WHERE deleted_at IS NULL — partial unique in raw SQL
+  @@index([companyId])
+  @@index([parentTeamId])
+  @@map("teams")
+  @@schema("organization")
+}
+
+// ============================================================================
+// DOMAIN 2: EMPLOYEE
+// ============================================================================
+
+model Employee {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  globalId           String           @map("global_id") @db.VarChar(12)
+  firstName          String           @map("first_name") @db.VarChar(100)
+  lastName           String           @map("last_name") @db.VarChar(100)
+  nickname           String?          @db.VarChar(60)
+  nationalId         String?          @map("national_id") @db.VarChar(64)
+  phone              String?          @db.VarChar(32)
+  email              String?          @db.VarChar(160)
+  dateOfBirth        DateTime?        @map("date_of_birth") @db.Date
+  hireDate           DateTime         @map("hire_date") @db.Date
+  probationEndDate   DateTime?        @map("probation_end_date") @db.Date
+  terminationDate    DateTime?        @map("termination_date") @db.Date
+  employmentStatus   EmploymentStatus @default(probation) @map("employment_status")
+  rehireOfEmployeeId String?          @map("rehire_of_employee_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?          @map("created_by") @db.Uuid
+  updatedBy          String?          @map("updated_by") @db.Uuid
+  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?          @map("deleted_by") @db.Uuid
+
+  rehireOf   Employee?  @relation("Rehire", fields: [rehireOfEmployeeId], references: [id])
+  rehires    Employee[] @relation("Rehire")
+
+  ledTeams              Team[]                     @relation("TeamBigLeader")
+  users                 User[]
+  assignments           EmployeeAssignment[]
+  documents             EmployeeDocument[]
+  bankAccounts          EmployeeBankAccount[]
+  attendanceRecords     AttendanceRecord[]
+  overtimeRecords       OvertimeRecord[]
+  attendanceReminders   AttendanceReminder[]
+  leaveBalances         LeaveBalance[]
+  leaveRequests           LeaveRequest[]
+  leaveRescheduleRequests LeaveRescheduleRequest[]
+  shiftSwapsRequested     LeaveShiftSwapRequest[] @relation("ShiftSwapRequester")
+  shiftSwapsAsPartner     LeaveShiftSwapRequest[] @relation("ShiftSwapPartner")
+  holidayConversions      HolidayConversion[]
+  payrollItems          PayrollItem[]
+  payslips              Payslip[]
+  salaryHistory         SalaryHistory[]
+  deposits              Deposit[]
+  commissionRecords     CommissionRecord[]
+  commissionSplits      CommissionSplit[]
+  redistributions       CommissionRedistribution[]
+  bigLeaderLedgers      BigLeaderLedger[]
+  marketingCommissionMemberResults MarketingCommissionMemberResult[]
+  marketingCommissionCarryForwards MarketingCommissionCarryForward[]
+  marketingCommissionCyclesLed MarketingCommissionCycle[] @relation("MarketingCycleBigLeader")
+  marketingCommissionRedistributionsReceived MarketingCommissionRedistribution[] @relation("MarketingRedistributionRecipient")
+  marketingDailyReports MarketingDailyReport[]
+  marketingExpenses     MarketingExpense[]
+  marketingTeamsLedAsBigLeader MarketingTeam[] @relation("MarketingTeamBigLeader")
+  marketingTeamsLedAsSubLeader MarketingTeam[] @relation("MarketingTeamSubLeader")
+  marketingTeamMemberships MarketingTeamMember[]
+  adminCommissionMemberResults AdminCommissionMemberResult[]
+  adminCommissionEmployeeProfiles AdminCommissionEmployeeProfile[]
+  adminCommissionShiftSegments AdminCommissionShiftSegment[]
+  adminCommissionPenalties AdminCommissionPenalty[]
+  adminCommissionRedistributionsReceived AdminCommissionRedistribution[] @relation("AdminRedistributionRecipient")
+  commissionAdjustments CommissionAdjustmentRequest[] @relation("CommissionAdjustmentEmployee")
+  commissionAdjustmentEntries CommissionAdjustmentEntry[] @relation("CommissionAdjustmentEntryEmployee")
+  commissionDeclarations CommissionDeclaration[]
+  advanceRequests       AdvanceRequest[]
+  depositRefunds        DepositRefund[]
+  evaluations           Evaluation[]
+  recruitedCandidates   Candidate[]
+  referralsMade         Referral[]                 @relation("Referrer")
+  referralsReceived     Referral[]                 @relation("Referred")
+  probationReviews      ProbationReview[]
+  trainingAssignments   TrainingAssignment[]
+  assetAssignments      AssetAssignment[]
+  announcementDeliveries AnnouncementDelivery[]
+
+  /// NOTE: CHECK global_id ~ '^EMP[0-9]{6}$'; unique (global_id) WHERE deleted_at IS NULL — raw SQL
+  @@index([globalId])
+  @@index([rehireOfEmployeeId])
+  @@index([employmentStatus])
+  @@map("employees")
+  @@schema("employee")
+}
+
+model EmployeeAssignment {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId       String    @map("employee_id") @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
+  teamId           String?   @map("team_id") @db.Uuid
+  functionId       String?   @map("function_id") @db.Uuid
+  roleLevel        RoleLevel @default(employee) @map("role_level")
+  isPrimaryCompany Boolean   @default(false) @map("is_primary_company")
+  isPrimaryTeam    Boolean   @default(false) @map("is_primary_team")
+  effectiveFrom    DateTime  @map("effective_from") @db.Date
+  effectiveTo      DateTime? @map("effective_to") @db.Date
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedBy        String?   @map("updated_by") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy        String?   @map("deleted_by") @db.Uuid
+
+  employee Employee  @relation(fields: [employeeId], references: [id])
+  company  Company   @relation(fields: [companyId], references: [id])
+  team     Team?     @relation(fields: [teamId], references: [id])
+  function Function? @relation(fields: [functionId], references: [id])
+
+  /// NOTE: partial uniques for one active primary company/team — raw SQL
+  @@index([employeeId])
+  @@index([companyId])
+  @@index([teamId])
+  @@index([effectiveTo])
+  @@map("employee_assignments")
+  @@schema("employee")
+}
+
+model EmployeeDocument {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId String       @map("employee_id") @db.Uuid
+  docType    DocumentType @map("doc_type")
+  fileKey    String       @map("file_key") @db.VarChar(512)
+  fileName   String       @map("file_name") @db.VarChar(255)
+  mimeType   String?      @map("mime_type") @db.VarChar(120)
+  uploadedAt DateTime     @default(now()) @map("uploaded_at") @db.Timestamptz()
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy  String?      @map("created_by") @db.Uuid
+  updatedBy  String?      @map("updated_by") @db.Uuid
+  deletedAt  DateTime?    @map("deleted_at") @db.Timestamptz()
+  deletedBy  String?      @map("deleted_by") @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@map("employee_documents")
+  @@schema("employee")
+}
+
+model EmployeeBankAccount {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId  String    @map("employee_id") @db.Uuid
+  bankCode    String    @map("bank_code") @db.VarChar(20)
+  accountNo   String    @map("account_no") @db.VarChar(128)
+  accountName String    @map("account_name") @db.VarChar(160)
+  isPrimary   Boolean   @default(false) @map("is_primary")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  /// NOTE: unique primary per employee WHERE is_primary AND deleted_at IS NULL — raw SQL
+  @@index([employeeId])
+  @@map("employee_bank_accounts")
+  @@schema("employee")
+}
+
+// ============================================================================
+// DOMAIN 3: PERMISSION
+// ============================================================================
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId   String?   @map("employee_id") @db.Uuid
+  username     String    @db.VarChar(120)
+  passwordHash String?   @map("password_hash") @db.VarChar(255)
+  userType     UserType  @default(human) @map("user_type")
+  isActive            Boolean   @default(true) @map("is_active")
+  mustChangePassword  Boolean   @default(false) @map("must_change_password")
+  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz()
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy    String?   @map("deleted_by") @db.Uuid
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
+
+  userRoles               UserRole[]
+  scopeGrants             ScopeGrant[]
+  impersonationsInitiated ImpersonationLog[]    @relation("Impersonator")
+  impersonationsTargeted  ImpersonationLog[]    @relation("ImpersonationTarget")
+  workflowInstances       WorkflowInstance[]
+  workflowActions         WorkflowAction[]
+  attendanceCorrections   AttendanceCorrection[]
+  finalizedEvaluations    Evaluation[]
+  pipelineEvents          RecruitmentPipelineEvent[]
+  assetEvents             AssetEvent[]
+  assetDamageReports      AssetDamageReport[]      @relation("AssetDamageReporter")
+  assetDamageResolved     AssetDamageReport[]      @relation("AssetDamageResolver")
+  kbArticleVersions       KbArticleVersion[]
+  aiConversations         AiConversation[]
+  aiAcceptedRecs          AiRecommendation[]
+  telegramAccounts        TelegramAccount[]
+  marketingReportAudits   MarketingReportAuditLog[] @relation("MarketingReportAuditActor")
+  marketingCycleLocks     MarketingCycleLock[]      @relation("MarketingCycleLocker")
+  marketingCycleUnlocks   MarketingCycleLock[]      @relation("MarketingCycleUnlocker")
+  marketingExpenseSubmissions MarketingExpense[]    @relation("MarketingExpenseSubmitter")
+  marketingExpenseApprovals   MarketingExpense[]    @relation("MarketingExpenseApprover")
+
+  /// NOTE: unique (username) WHERE deleted_at IS NULL — raw SQL
+  @@index([employeeId])
+  @@map("users")
+  @@schema("permission")
+}
+
+model Role {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String    @db.VarChar(40)
+  name      String    @db.VarChar(120)
+  isSystem  Boolean   @default(false) @map("is_system")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  workflowSteps   WorkflowStep[]
+
+  /// NOTE: unique (code) WHERE deleted_at IS NULL — raw SQL
+  @@map("roles")
+  @@schema("permission")
+}
+
+model Permission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique @db.VarChar(80)
+  description String?  @db.VarChar(255)
+  category    String?  @db.VarChar(60)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  rolePermissions RolePermission[]
+  menuPermissions MenuPermission[]
+
+  @@map("permissions")
+  @@schema("permission")
+}
+
+model RolePermission {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?  @map("created_by") @db.Uuid
+  updatedBy    String?  @map("updated_by") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("permission")
+}
+
+model UserRole {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  roleId    String    @map("role_id") @db.Uuid
+  grantedAt DateTime  @default(now()) @map("granted_at") @db.Timestamptz()
+  grantedBy String?   @map("granted_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  /// NOTE: unique (user_id, role_id) WHERE deleted_at IS NULL — raw SQL
+  @@map("user_roles")
+  @@schema("permission")
+}
+
+model ScopeGrant {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  scopeType ScopeType @map("scope_type")
+  companyId String?   @map("company_id") @db.Uuid
+  teamId    String?   @map("team_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  user    User     @relation(fields: [userId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+  team    Team?    @relation(fields: [teamId], references: [id])
+
+  /// NOTE: CHECK ck_scope_shape enforces scope/company/team coherence — raw SQL
+  @@index([userId])
+  @@index([scopeType, companyId, teamId])
+  @@map("scope_grants")
+  @@schema("permission")
+}
+
+model MenuPermission {
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  menuKey              String     @map("menu_key") @db.VarChar(80)
+  surface              Surface
+  requiredPermissionId String?    @map("required_permission_id") @db.Uuid
+  featureFlagKey       String?    @map("feature_flag_key") @db.VarChar(80)
+  createdAt            DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy            String?    @map("created_by") @db.Uuid
+  updatedBy            String?    @map("updated_by") @db.Uuid
+
+  requiredPermission Permission? @relation(fields: [requiredPermissionId], references: [id])
+
+  @@unique([menuKey, surface])
+  @@map("menu_permissions")
+  @@schema("permission")
+}
+
+model ImpersonationLog {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId  String    @map("actor_user_id") @db.Uuid
+  targetUserId String    @map("target_user_id") @db.Uuid
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz()
+  endedAt      DateTime? @map("ended_at") @db.Timestamptz()
+  reason       String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedBy    String?   @map("updated_by") @db.Uuid
+
+  actor  User @relation("Impersonator", fields: [actorUserId], references: [id])
+  target User @relation("ImpersonationTarget", fields: [targetUserId], references: [id])
+
+  @@index([actorUserId])
+  @@index([targetUserId])
+  @@map("impersonation_log")
+  @@schema("permission")
+}
+
+model FeatureFlag {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key       String   @db.VarChar(80)
+  companyId String?  @map("company_id") @db.Uuid
+  enabled   Boolean  @default(false)
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  /// NOTE: unique (key, COALESCE(company_id, zero-uuid)) — expression index in raw SQL
+  @@map("feature_flags")
+  @@schema("permission")
+}
+// ============================================================================
+// DOMAIN 6: WORKFLOW
+// ============================================================================
+
+model WorkflowDefinition {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String             @db.VarChar(60)
+  name       String             @db.VarChar(120)
+  entityType WorkflowEntityType @map("entity_type")
+  version    Int                @default(1)
+  isActive   Boolean            @default(true) @map("is_active")
+  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy  String?            @map("created_by") @db.Uuid
+  updatedBy  String?            @map("updated_by") @db.Uuid
+  deletedAt  DateTime?          @map("deleted_at") @db.Timestamptz()
+  deletedBy  String?            @map("deleted_by") @db.Uuid
+
+  steps     WorkflowStep[]
+  instances WorkflowInstance[]
+
+  /// NOTE: unique (code, version) WHERE deleted_at IS NULL — raw SQL
+  @@index([entityType])
+  @@map("workflow_definitions")
+  @@schema("workflow")
+}
+
+model WorkflowStep {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowDefinitionId String       @map("workflow_definition_id") @db.Uuid
+  stepOrder            Int          @map("step_order")
+  name                 String       @db.VarChar(120)
+  approverRule         ApproverRule @map("approver_rule")
+  approverRoleId       String?      @map("approver_role_id") @db.Uuid
+  allowEscalate        Boolean      @default(true) @map("allow_escalate")
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy            String?      @map("created_by") @db.Uuid
+  updatedBy            String?      @map("updated_by") @db.Uuid
+
+  definition   WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id])
+  approverRole Role?              @relation(fields: [approverRoleId], references: [id])
+
+  /// NOTE: CHECK approver_rule<>'role' OR approver_role_id IS NOT NULL — raw SQL
+  @@unique([workflowDefinitionId, stepOrder])
+  @@index([workflowDefinitionId])
+  @@map("workflow_steps")
+  @@schema("workflow")
+}
+
+model WorkflowInstance {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowDefinitionId String                 @map("workflow_definition_id") @db.Uuid
+  entityType           WorkflowEntityType     @map("entity_type")
+  entityId             String                 @map("entity_id") @db.Uuid
+  companyId            String?                @map("company_id") @db.Uuid
+  currentStepOrder     Int                    @default(1) @map("current_step_order")
+  status               WorkflowInstanceStatus @default(pending)
+  initiatedBy          String?                @map("initiated_by") @db.Uuid
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy            String?                @map("created_by") @db.Uuid
+  updatedBy            String?                @map("updated_by") @db.Uuid
+  deletedAt            DateTime?              @map("deleted_at") @db.Timestamptz()
+  deletedBy            String?                @map("deleted_by") @db.Uuid
+
+  definition  WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id])
+  company     Company?           @relation(fields: [companyId], references: [id])
+  initiator   User?              @relation(fields: [initiatedBy], references: [id])
+
+  actions               WorkflowAction[]
+  overtimeRecords       OvertimeRecord[]
+  attendanceCorrections AttendanceCorrection[]
+  leaveRequests         LeaveRequest[]
+  leaveRescheduleRequests LeaveRescheduleRequest[]
+  leaveShiftSwapRequests  LeaveShiftSwapRequest[]
+  advanceRequests       AdvanceRequest[]
+  depositRefunds        DepositRefund[]
+
+  /// NOTE: entity_id is polymorphic (no DB FK) — resolved by entity_type in app layer
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([companyId])
+  @@map("workflow_instances")
+  @@schema("workflow")
+}
+
+model WorkflowAction {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowInstanceId String             @map("workflow_instance_id") @db.Uuid
+  stepOrder          Int                @map("step_order")
+  action             WorkflowActionType
+  actorUserId        String             @map("actor_user_id") @db.Uuid
+  isOwnerOverride    Boolean            @default(false) @map("is_owner_override")
+  comment            String?
+  actedAt            DateTime           @default(now()) @map("acted_at") @db.Timestamptz()
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+
+  instance WorkflowInstance @relation(fields: [workflowInstanceId], references: [id])
+  actor    User             @relation(fields: [actorUserId], references: [id])
+
+  /// NOTE: append-only (UPDATE/DELETE blocked by trigger) — raw SQL
+  @@index([workflowInstanceId])
+  @@map("workflow_actions")
+  @@schema("workflow")
+}
+
+// ============================================================================
+// DOMAIN 4: ATTENDANCE
+// ============================================================================
+
+model AttendanceRecord {
+  id            String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId    String                 @map("employee_id") @db.Uuid
+  companyId     String                 @map("company_id") @db.Uuid
+  workDate      DateTime               @map("work_date") @db.Date
+  checkInAt     DateTime?              @map("check_in_at") @db.Timestamptz()
+  checkOutAt    DateTime?              @map("check_out_at") @db.Timestamptz()
+  lateMinutes   Int                    @default(0) @map("late_minutes")
+  lateDeduction Decimal                @default(0) @map("late_deduction") @db.Decimal(14, 2)
+  workedMinutes Int                    @default(0) @map("worked_minutes")
+  status        AttendanceRecordStatus @default(incomplete)
+  source        AttendanceRecordSource @default(telegram)
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?                @map("created_by") @db.Uuid
+  updatedBy     String?                @map("updated_by") @db.Uuid
+  deletedAt     DateTime?              @map("deleted_at") @db.Timestamptz()
+  deletedBy     String?                @map("deleted_by") @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  company  Company  @relation(fields: [companyId], references: [id])
+
+  breaks      BreakRecord[]
+  corrections AttendanceCorrection[]
+
+  /// NOTE: unique (employee_id, work_date) WHERE deleted_at IS NULL; CHECKs on late/checkout — raw SQL
+  @@index([companyId, workDate])
+  @@index([employeeId])
+  @@index([status])
+  @@map("attendance_records")
+  @@schema("attendance")
+}
+
+model BreakRecord {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attendanceRecordId String    @map("attendance_record_id") @db.Uuid
+  breakStartAt       DateTime? @map("break_start_at") @db.Timestamptz()
+  breakEndAt         DateTime? @map("break_end_at") @db.Timestamptz()
+  durationMinutes    Int?      @map("duration_minutes")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?   @map("created_by") @db.Uuid
+  updatedBy          String?   @map("updated_by") @db.Uuid
+
+  attendanceRecord AttendanceRecord @relation(fields: [attendanceRecordId], references: [id])
+
+  @@index([attendanceRecordId])
+  @@map("break_records")
+  @@schema("attendance")
+}
+
+model OvertimeRecord {
+  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId         String                   @map("employee_id") @db.Uuid
+  companyId          String                   @map("company_id") @db.Uuid
+  workDate           DateTime                 @map("work_date") @db.Date
+  otHours            Decimal                  @map("ot_hours") @db.Decimal(5, 2)
+  rateApplied        Decimal                  @map("rate_applied") @db.Decimal(10, 2)
+  amount             Decimal                  @db.Decimal(14, 2)
+  workflowInstanceId String?                  @map("workflow_instance_id") @db.Uuid
+  status             AttendanceApprovalStatus @default(pending)
+  payrollItemId      String?                  @map("payroll_item_id") @db.Uuid
+  formulaVersionId   String?                  @map("formula_version_id") @db.Uuid
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?                  @map("created_by") @db.Uuid
+  updatedBy          String?                  @map("updated_by") @db.Uuid
+  deletedAt          DateTime?                @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?                  @map("deleted_by") @db.Uuid
+
+  employee         Employee          @relation(fields: [employeeId], references: [id])
+  company          Company           @relation(fields: [companyId], references: [id])
+  workflowInstance WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
+  payrollItem      PayrollItem?      @relation(fields: [payrollItemId], references: [id])
+  formulaVersion   FormulaVersion?   @relation(fields: [formulaVersionId], references: [id])
+
+  /// NOTE: CHECK ot_hours >= 1 AND full hours — raw SQL
+  @@index([employeeId, workDate])
+  @@index([status])
+  @@map("overtime_records")
+  @@schema("attendance")
+}
+
+model AttendanceCorrection {
+  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attendanceRecordId String                   @map("attendance_record_id") @db.Uuid
+  requestedBy        String                   @map("requested_by") @db.Uuid
+  field              String                   @db.VarChar(60)
+  oldValue           Json?                    @map("old_value")
+  newValue           Json?                    @map("new_value")
+  reason             String?
+  workflowInstanceId String?                  @map("workflow_instance_id") @db.Uuid
+  status             AttendanceApprovalStatus @default(pending)
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?                  @map("created_by") @db.Uuid
+  updatedBy          String?                  @map("updated_by") @db.Uuid
+  deletedAt          DateTime?                @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?                  @map("deleted_by") @db.Uuid
+
+  attendanceRecord AttendanceRecord  @relation(fields: [attendanceRecordId], references: [id])
+  requester        User              @relation(fields: [requestedBy], references: [id])
+  workflowInstance WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
+
+  @@index([attendanceRecordId])
+  @@map("attendance_corrections")
+  @@schema("attendance")
+}
+
+model AttendanceReminder {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId   String       @map("employee_id") @db.Uuid
+  workDate     DateTime     @map("work_date") @db.Date
+  reminderType ReminderType @map("reminder_type")
+  sentAt       DateTime     @default(now()) @map("sent_at") @db.Timestamptz()
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, workDate, reminderType])
+  @@map("attendance_reminders")
+  @@schema("attendance")
+}
+
+// ============================================================================
+// DOMAIN 5: LEAVE
+// ============================================================================
+
+model LeaveType {
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code               String        @db.VarChar(40)
+  name               String        @db.VarChar(120)
+  accrualPeriod      AccrualPeriod @map("accrual_period")
+  defaultQuota       Decimal       @map("default_quota") @db.Decimal(6, 2)
+  convertibleToBonus Boolean       @default(false) @map("convertible_to_bonus")
+  allowBorrowFuture  Boolean       @default(false) @map("allow_borrow_future")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?       @map("created_by") @db.Uuid
+  updatedBy          String?       @map("updated_by") @db.Uuid
+  deletedAt          DateTime?     @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?       @map("deleted_by") @db.Uuid
+
+  balances LeaveBalance[]
+  requests LeaveRequest[]
+
+  /// NOTE: unique (code) WHERE deleted_at IS NULL — raw SQL
+  @@map("leave_types")
+  @@schema("leave")
+}
+
+model LeaveBalance {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId  String    @map("employee_id") @db.Uuid
+  leaveTypeId String    @map("leave_type_id") @db.Uuid
+  periodStart DateTime  @map("period_start") @db.Date
+  periodEnd   DateTime  @map("period_end") @db.Date
+  entitled    Decimal   @default(0) @db.Decimal(6, 2)
+  used        Decimal   @default(0) @db.Decimal(6, 2)
+  borrowed    Decimal   @default(0) @db.Decimal(6, 2)
+  remaining   Decimal   @default(0) @db.Decimal(6, 2)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  /// NOTE: unique (employee_id, leave_type_id, period_start) WHERE deleted_at IS NULL — raw SQL
+  @@index([employeeId])
+  @@map("leave_balances")
+  @@schema("leave")
+}
+
+model LeaveRequest {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId         String             @map("employee_id") @db.Uuid
+  companyId          String             @map("company_id") @db.Uuid
+  leaveTypeId        String             @map("leave_type_id") @db.Uuid
+  startDate          DateTime           @map("start_date") @db.Date
+  endDate            DateTime           @map("end_date") @db.Date
+  days               Decimal            @db.Decimal(5, 2)
+  isBorrowed         Boolean            @default(false) @map("is_borrowed")
+  reason             String?
+  rescheduleCount    Int                @default(0) @map("reschedule_count")
+  workflowInstanceId String?            @map("workflow_instance_id") @db.Uuid
+  status             LeaveRequestStatus @default(pending)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?            @map("created_by") @db.Uuid
+  updatedBy          String?            @map("updated_by") @db.Uuid
+  deletedAt          DateTime?          @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?            @map("deleted_by") @db.Uuid
+
+  employee              Employee                @relation(fields: [employeeId], references: [id])
+  company               Company                 @relation(fields: [companyId], references: [id])
+  leaveType             LeaveType               @relation(fields: [leaveTypeId], references: [id])
+  workflowInstance      WorkflowInstance?       @relation(fields: [workflowInstanceId], references: [id])
+  rescheduleRequests    LeaveRescheduleRequest[]
+  shiftSwapsAsRequester LeaveShiftSwapRequest[] @relation("ShiftSwapRequesterLeave")
+  shiftSwapsAsPartner   LeaveShiftSwapRequest[] @relation("ShiftSwapPartnerLeave")
+
+  /// NOTE: CHECK end_date>=start_date, days>0 — raw SQL
+  @@index([employeeId, startDate])
+  @@index([status])
+  @@index([companyId])
+  @@map("leave_requests")
+  @@schema("leave")
+}
+
+model LeaveRescheduleRequest {
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leaveRequestId     String                @map("leave_request_id") @db.Uuid
+  employeeId         String                @map("employee_id") @db.Uuid
+  companyId          String                @map("company_id") @db.Uuid
+  originalStartDate  DateTime              @map("original_start_date") @db.Date
+  originalEndDate    DateTime              @map("original_end_date") @db.Date
+  originalDays       Decimal               @map("original_days") @db.Decimal(5, 2)
+  newStartDate       DateTime              @map("new_start_date") @db.Date
+  newEndDate         DateTime              @map("new_end_date") @db.Date
+  newDays            Decimal               @map("new_days") @db.Decimal(5, 2)
+  reason             String
+  isEmergency        Boolean               @default(false) @map("is_emergency")
+  workflowInstanceId String?               @map("workflow_instance_id") @db.Uuid
+  status             LeaveRescheduleStatus @default(pending)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?               @map("created_by") @db.Uuid
+  updatedBy          String?               @map("updated_by") @db.Uuid
+  deletedAt          DateTime?             @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?               @map("deleted_by") @db.Uuid
+
+  leaveRequest     LeaveRequest      @relation(fields: [leaveRequestId], references: [id])
+  employee         Employee          @relation(fields: [employeeId], references: [id])
+  company          Company           @relation(fields: [companyId], references: [id])
+  workflowInstance WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
+
+  @@index([leaveRequestId])
+  @@index([employeeId])
+  @@index([companyId, status])
+  @@index([status])
+  @@map("leave_reschedule_requests")
+  @@schema("leave")
+}
+
+model LeaveShiftSwapRequest {
+  id                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId               String               @map("company_id") @db.Uuid
+  requesterEmployeeId     String               @map("requester_employee_id") @db.Uuid
+  partnerEmployeeId       String               @map("partner_employee_id") @db.Uuid
+  requesterLeaveRequestId String               @map("requester_leave_request_id") @db.Uuid
+  partnerLeaveRequestId   String               @map("partner_leave_request_id") @db.Uuid
+  requesterAgreedAt       DateTime             @default(now()) @map("requester_agreed_at") @db.Timestamptz()
+  partnerAgreedAt         DateTime?            @map("partner_agreed_at") @db.Timestamptz()
+  workflowInstanceId      String?              @map("workflow_instance_id") @db.Uuid
+  status                  LeaveShiftSwapStatus @default(pending_partner)
+  createdAt               DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt               DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy               String?              @map("created_by") @db.Uuid
+  updatedBy               String?              @map("updated_by") @db.Uuid
+  deletedAt               DateTime?            @map("deleted_at") @db.Timestamptz()
+  deletedBy               String?              @map("deleted_by") @db.Uuid
+
+  company               Company           @relation(fields: [companyId], references: [id])
+  requesterEmployee     Employee          @relation("ShiftSwapRequester", fields: [requesterEmployeeId], references: [id])
+  partnerEmployee       Employee          @relation("ShiftSwapPartner", fields: [partnerEmployeeId], references: [id])
+  requesterLeaveRequest LeaveRequest      @relation("ShiftSwapRequesterLeave", fields: [requesterLeaveRequestId], references: [id])
+  partnerLeaveRequest   LeaveRequest      @relation("ShiftSwapPartnerLeave", fields: [partnerLeaveRequestId], references: [id])
+  workflowInstance      WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
+
+  @@index([requesterEmployeeId])
+  @@index([partnerEmployeeId])
+  @@index([companyId, status])
+  @@index([status])
+  @@map("leave_shift_swap_requests")
+  @@schema("leave")
+}
+
+model HolidayConversion {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId     String    @map("employee_id") @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  payrollCycleId String    @map("payroll_cycle_id") @db.Uuid
+  unusedDays     Decimal   @default(0) @map("unused_days") @db.Decimal(6, 2)
+  ratePerDay     Decimal   @default(600) @map("rate_per_day") @db.Decimal(14, 2)
+  capAmount      Decimal   @default(1200) @map("cap_amount") @db.Decimal(14, 2)
+  overrideCap    Boolean   @default(false) @map("override_cap")
+  bonusAmount    Decimal   @default(0) @map("bonus_amount") @db.Decimal(14, 2)
+  payrollItemId  String?   @map("payroll_item_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  company      Company      @relation(fields: [companyId], references: [id])
+  payrollCycle PayrollCycle @relation(fields: [payrollCycleId], references: [id])
+  payrollItem  PayrollItem? @relation(fields: [payrollItemId], references: [id])
+
+  /// NOTE: CHECK override_cap OR bonus_amount<=cap_amount; unique (employee_id, payroll_cycle_id) — raw SQL
+  @@map("holiday_conversions")
+  @@schema("leave")
+}
+// ============================================================================
+// SYSTEM (formula tables — placed here as payroll/commission/perf reference them)
+// ============================================================================
+
+model FormulaDefinition {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String            @db.VarChar(80)
+  name        String            @db.VarChar(160)
+  returnType  FormulaReturnType @default(number) @map("return_type")
+  category    String?           @db.VarChar(60)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?           @map("created_by") @db.Uuid
+  updatedBy   String?           @map("updated_by") @db.Uuid
+  deletedAt   DateTime?         @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?           @map("deleted_by") @db.Uuid
+
+  versions FormulaVersion[]
+
+  /// NOTE: unique (key) WHERE deleted_at IS NULL — raw SQL
+  @@map("formula_definitions")
+  @@schema("system")
+}
+
+model FormulaVersion {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaDefinitionId String    @map("formula_definition_id") @db.Uuid
+  version             Int
+  expression          String
+  parameters          Json?
+  effectiveFrom       DateTime  @map("effective_from") @db.Date
+  effectiveTo         DateTime? @map("effective_to") @db.Date
+  isActive            Boolean   @default(true) @map("is_active")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy           String?   @map("created_by") @db.Uuid
+  updatedBy           String?   @map("updated_by") @db.Uuid
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy           String?   @map("deleted_by") @db.Uuid
+
+  definition        FormulaDefinition  @relation(fields: [formulaDefinitionId], references: [id])
+  payrollItems      PayrollItem[]
+  overtimeRecords   OvertimeRecord[]
+  commissionRecords CommissionRecord[]
+
+  /// NOTE: unique (def_id, version); EXCLUDE no-overlap on effective range; CHECK period — raw SQL
+  @@index([formulaDefinitionId])
+  @@map("formula_versions")
+  @@schema("system")
+}
+
+// ============================================================================
+// DOMAIN 7: PAYROLL
+// ============================================================================
+
+model PayrollCycle {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String             @map("company_id") @db.Uuid
+  periodStart DateTime           @map("period_start") @db.Date
+  periodEnd   DateTime           @map("period_end") @db.Date
+  payDate     DateTime           @map("pay_date") @db.Date
+  status      PayrollCycleStatus @default(open)
+  lockedAt    DateTime?          @map("locked_at") @db.Timestamptz()
+  paidAt      DateTime?          @map("paid_at") @db.Timestamptz()
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?            @map("created_by") @db.Uuid
+  updatedBy   String?            @map("updated_by") @db.Uuid
+  deletedAt   DateTime?          @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?            @map("deleted_by") @db.Uuid
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  items                  PayrollItem[]
+  payslips               Payslip[]
+  deposits               Deposit[]
+  holidayConversions     HolidayConversion[]
+  commissionEarned       CommissionRecord[]         @relation("EarnCycle")
+  commissionPaid         CommissionRecord[]         @relation("PayCycle")
+  commissionHolds        CommissionHold[]           @relation("HoldCycle")
+  commissionHoldResolved CommissionHold[]           @relation("ResolvedCycle")
+  redistributions        CommissionRedistribution[]
+  bigLeaderLedgers       BigLeaderLedger[]
+  marketingCommissionCyclesEarn MarketingCommissionCycle[] @relation("MarketingEarnCycle")
+  marketingCommissionCyclesPay  MarketingCommissionCycle[] @relation("MarketingPayCycle")
+  marketingCycleLocks           MarketingCycleLock[]
+  marketingExpenses             MarketingExpense[]
+  adminCommissionCyclesEarn AdminCommissionCycle[] @relation("AdminEarnCycle")
+  adminCommissionCyclesPay  AdminCommissionCycle[] @relation("AdminPayCycle")
+  adminCommissionShiftSegments AdminCommissionShiftSegment[] @relation("AdminShiftSegmentEarnCycle")
+  commissionCyclesEarn     CommissionCycle[] @relation("CommissionCycleEarn")
+  commissionAdjustmentsEarn CommissionAdjustmentRequest[] @relation("CommissionAdjustmentEarn")
+  candidatesCounted      Candidate[]
+
+  /// NOTE: unique (company_id, period_start) WHERE deleted_at IS NULL; CHECK period — raw SQL
+  @@index([companyId, status])
+  @@map("payroll_cycles")
+  @@schema("payroll")
+}
+
+model PayrollItem {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payrollCycleId   String                @map("payroll_cycle_id") @db.Uuid
+  employeeId       String                @map("employee_id") @db.Uuid
+  companyId        String                @map("company_id") @db.Uuid
+  itemType         PayrollItemType       @map("item_type")
+  amount           Decimal               @db.Decimal(14, 2)
+  quantity         Decimal?              @db.Decimal(8, 2)
+  formulaVersionId String?               @map("formula_version_id") @db.Uuid
+  sourceRefType    PayrollSourceRefType? @map("source_ref_type")
+  sourceRefId      String?               @map("source_ref_id") @db.Uuid
+  note             String?
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy        String?               @map("created_by") @db.Uuid
+  updatedBy        String?               @map("updated_by") @db.Uuid
+  deletedAt        DateTime?             @map("deleted_at") @db.Timestamptz()
+  deletedBy        String?               @map("deleted_by") @db.Uuid
+
+  payrollCycle   PayrollCycle    @relation(fields: [payrollCycleId], references: [id])
+  employee       Employee        @relation(fields: [employeeId], references: [id])
+  company        Company         @relation(fields: [companyId], references: [id])
+  formulaVersion FormulaVersion? @relation(fields: [formulaVersionId], references: [id])
+
+  overtimeRecords    OvertimeRecord[]
+  holidayConversions HolidayConversion[]
+  commissionRecords  CommissionRecord[]
+  bigLeaderLedgers   BigLeaderLedger[]
+  marketingMemberResults MarketingCommissionMemberResult[] @relation("MarketingMemberPayrollItem")
+  marketingBigLeaderCycles MarketingCommissionCycle[] @relation("MarketingBigLeaderPayrollItem")
+  adminMemberResults AdminCommissionMemberResult[] @relation("AdminMemberPayrollItem")
+  commissionAdjustmentEntries CommissionAdjustmentEntry[] @relation("CommissionAdjustmentPayrollItem")
+  advanceRecoveries  AdvanceRequest[]
+  depositRefunds     DepositRefund[]
+  referrals          Referral[]
+
+  @@index([payrollCycleId, employeeId])
+  @@index([itemType])
+  @@index([sourceRefType, sourceRefId])
+  @@map("payroll_items")
+  @@schema("payroll")
+}
+
+model Payslip {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payrollCycleId String    @map("payroll_cycle_id") @db.Uuid
+  employeeId     String    @map("employee_id") @db.Uuid
+  gross          Decimal   @default(0) @db.Decimal(14, 2)
+  deductions     Decimal   @default(0) @db.Decimal(14, 2)
+  net            Decimal   @default(0) @db.Decimal(14, 2)
+  breakdown      Json?
+  generatedAt    DateTime  @default(now()) @map("generated_at") @db.Timestamptz()
+  fileKey        String?   @map("file_key") @db.VarChar(512)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+
+  payrollCycle PayrollCycle @relation(fields: [payrollCycleId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  /// NOTE: unique (payroll_cycle_id, employee_id) WHERE deleted_at IS NULL — raw SQL
+  @@map("payslips")
+  @@schema("payroll")
+}
+
+model SalaryHistory {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId    String    @map("employee_id") @db.Uuid
+  companyId     String    @map("company_id") @db.Uuid
+  monthlySalary Decimal   @map("monthly_salary") @db.Decimal(14, 2)
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  reason        String?   @db.VarChar(255)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  company  Company  @relation(fields: [companyId], references: [id])
+
+  /// NOTE: EXCLUDE no-overlap per (employee, company) on effective range — raw SQL
+  @@index([employeeId])
+  @@map("salary_history")
+  @@schema("payroll")
+}
+
+model Deposit {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId      String    @map("employee_id") @db.Uuid
+  owningCompanyId String    @map("owning_company_id") @db.Uuid
+  payrollCycleId  String?   @map("payroll_cycle_id") @db.Uuid
+  amount          Decimal   @default(500) @db.Decimal(14, 2)
+  runningTotal    Decimal   @default(0) @map("running_total") @db.Decimal(14, 2)
+  refundedAt      DateTime? @map("refunded_at") @db.Timestamptz()
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+  owningCompany Company       @relation(fields: [owningCompanyId], references: [id])
+  payrollCycle  PayrollCycle? @relation(fields: [payrollCycleId], references: [id])
+
+  /// NOTE: CHECK running_total<=3000, amount>=0; deposit non-transferable (owning_company_id immutable, app-enforced) — raw SQL
+  @@index([employeeId, owningCompanyId])
+  @@map("deposits")
+  @@schema("payroll")
+}
+
+// ============================================================================
+// DOMAIN 8: COMMISSION
+// ============================================================================
+
+model CommissionTarget {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  functionId    String?          @map("function_id") @db.Uuid
+  roleLevel     RoleLevel        @default(employee) @map("role_level")
+  metric        CommissionMetric @default(unique_candidates)
+  targetValue   Decimal          @default(24) @map("target_value") @db.Decimal(10, 2)
+  effectiveFrom DateTime         @map("effective_from") @db.Date
+  effectiveTo   DateTime?        @map("effective_to") @db.Date
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?          @map("created_by") @db.Uuid
+  updatedBy     String?          @map("updated_by") @db.Uuid
+  deletedAt     DateTime?        @map("deleted_at") @db.Timestamptz()
+  deletedBy     String?          @map("deleted_by") @db.Uuid
+
+  function Function? @relation(fields: [functionId], references: [id])
+
+  @@index([functionId, roleLevel])
+  @@map("commission_targets")
+  @@schema("commission")
+}
+
+model CommissionRecord {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId       String                 @map("employee_id") @db.Uuid
+  companyId        String                 @map("company_id") @db.Uuid
+  earnCycleId      String                 @map("earn_cycle_id") @db.Uuid
+  payCycleId       String?                @map("pay_cycle_id") @db.Uuid
+  achievedValue    Decimal                @default(0) @map("achieved_value") @db.Decimal(10, 2)
+  targetValue      Decimal                @default(0) @map("target_value") @db.Decimal(10, 2)
+  qualified        Boolean                @default(false)
+  grossAmount      Decimal                @default(0) @map("gross_amount") @db.Decimal(14, 2)
+  formulaVersionId String?                @map("formula_version_id") @db.Uuid
+  status           CommissionRecordStatus @default(accrued)
+  payrollItemId    String?                @map("payroll_item_id") @db.Uuid
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy        String?                @map("created_by") @db.Uuid
+  updatedBy        String?                @map("updated_by") @db.Uuid
+  deletedAt        DateTime?              @map("deleted_at") @db.Timestamptz()
+  deletedBy        String?                @map("deleted_by") @db.Uuid
+
+  employee       Employee        @relation(fields: [employeeId], references: [id])
+  company        Company         @relation(fields: [companyId], references: [id])
+  earnCycle      PayrollCycle    @relation("EarnCycle", fields: [earnCycleId], references: [id])
+  payCycle       PayrollCycle?   @relation("PayCycle", fields: [payCycleId], references: [id])
+  formulaVersion FormulaVersion? @relation(fields: [formulaVersionId], references: [id])
+  payrollItem    PayrollItem?    @relation(fields: [payrollItemId], references: [id])
+
+  holds           CommissionHold[]
+  redistributions CommissionRedistribution[]
+  splits          CommissionSplit[]
+
+  @@index([employeeId, earnCycleId])
+  @@index([status])
+  @@map("commission_records")
+  @@schema("commission")
+}
+
+model CommissionHold {
+  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commissionRecordId String                   @map("commission_record_id") @db.Uuid
+  holdCycleId        String                   @map("hold_cycle_id") @db.Uuid
+  resolution         CommissionHoldResolution @default(pending)
+  resolvedCycleId    String?                  @map("resolved_cycle_id") @db.Uuid
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?                  @map("created_by") @db.Uuid
+  updatedBy          String?                  @map("updated_by") @db.Uuid
+  deletedAt          DateTime?                @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?                  @map("deleted_by") @db.Uuid
+
+  commissionRecord CommissionRecord @relation(fields: [commissionRecordId], references: [id])
+  holdCycle        PayrollCycle     @relation("HoldCycle", fields: [holdCycleId], references: [id])
+  resolvedCycle    PayrollCycle?    @relation("ResolvedCycle", fields: [resolvedCycleId], references: [id])
+
+  redistributions CommissionRedistribution[]
+
+  @@index([commissionRecordId])
+  @@map("commission_holds")
+  @@schema("commission")
+}
+
+model CommissionRedistribution {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceCommissionRecordId String    @map("source_commission_record_id") @db.Uuid
+  sourceHoldId             String?   @map("source_hold_id") @db.Uuid
+  toTeamId                 String    @map("to_team_id") @db.Uuid
+  toEmployeeId             String?   @map("to_employee_id") @db.Uuid
+  amount                   Decimal   @db.Decimal(14, 2)
+  redistributedCycleId     String    @map("redistributed_cycle_id") @db.Uuid
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt                DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy                String?   @map("created_by") @db.Uuid
+  updatedBy                String?   @map("updated_by") @db.Uuid
+  deletedAt                DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy                String?   @map("deleted_by") @db.Uuid
+
+  sourceRecord     CommissionRecord @relation(fields: [sourceCommissionRecordId], references: [id])
+  sourceHold       CommissionHold?  @relation(fields: [sourceHoldId], references: [id])
+  toTeam           Team             @relation(fields: [toTeamId], references: [id])
+  toEmployee       Employee?        @relation(fields: [toEmployeeId], references: [id])
+  redistributedCycle PayrollCycle   @relation(fields: [redistributedCycleId], references: [id])
+
+  /// NOTE: CHECK amount>=0 — raw SQL. source_hold_id gives full redistribution lineage.
+  @@index([sourceCommissionRecordId])
+  @@index([toTeamId])
+  @@map("commission_redistributions")
+  @@schema("commission")
+}
+
+model CommissionSplit {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commissionRecordId String   @map("commission_record_id") @db.Uuid
+  employeeId         String   @map("employee_id") @db.Uuid
+  shareRatio         Decimal  @map("share_ratio") @db.Decimal(10, 4)
+  amount             Decimal  @db.Decimal(14, 2)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?  @map("created_by") @db.Uuid
+  updatedBy          String?  @map("updated_by") @db.Uuid
+
+  commissionRecord CommissionRecord @relation(fields: [commissionRecordId], references: [id])
+  employee         Employee         @relation(fields: [employeeId], references: [id])
+
+  /// NOTE: CHECK share_ratio in (0,1] — raw SQL
+  @@unique([commissionRecordId, employeeId])
+  @@index([commissionRecordId])
+  @@map("commission_splits")
+  @@schema("commission")
+}
+
+model BigLeaderLedger {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId    String    @map("employee_id") @db.Uuid
+  companyId     String    @map("company_id") @db.Uuid
+  cycleId       String    @map("cycle_id") @db.Uuid
+  openingCarry  Decimal   @default(0) @map("opening_carry") @db.Decimal(14, 2)
+  earned        Decimal   @default(0) @db.Decimal(14, 2)
+  closingCarry  Decimal   @default(0) @map("closing_carry") @db.Decimal(14, 2)
+  payrollItemId String?   @map("payroll_item_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  employee    Employee     @relation(fields: [employeeId], references: [id])
+  company     Company      @relation(fields: [companyId], references: [id])
+  cycle       PayrollCycle @relation(fields: [cycleId], references: [id])
+  payrollItem PayrollItem? @relation(fields: [payrollItemId], references: [id])
+
+  /// NOTE: opening_carry/closing_carry may be negative (negative carry forward) — by design
+  @@unique([employeeId, companyId, cycleId])
+  @@index([employeeId])
+  @@map("big_leader_ledger")
+  @@schema("commission")
+}
+
+model MarketingCommissionCycle {
+  id                     String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId              String                         @map("company_id") @db.Uuid
+  teamId                 String                         @map("team_id") @db.Uuid
+  earnCycleId            String                         @map("earn_cycle_id") @db.Uuid
+  payCycleId             String?                        @map("pay_cycle_id") @db.Uuid
+  grossProfit            Decimal                        @map("gross_profit") @db.Decimal(14, 2)
+  employeeSalaryExpense  Decimal                        @map("employee_salary_expense") @db.Decimal(14, 2)
+  marketingExpense       Decimal                        @map("marketing_expense") @db.Decimal(14, 2)
+  lineExpense            Decimal                        @map("line_expense") @db.Decimal(14, 2)
+  telesalesExpense       Decimal                        @map("telesales_expense") @db.Decimal(14, 2)
+  promotionExpense       Decimal                        @default(0) @map("promotion_expense") @db.Decimal(14, 2)
+  profitAfterExpenses    Decimal                        @map("profit_after_expenses") @db.Decimal(14, 2)
+  companyHeadDeduction   Decimal                        @map("company_head_deduction") @db.Decimal(14, 2)
+  netProfit              Decimal                        @map("net_profit") @db.Decimal(14, 2)
+  teamCommissionPool     Decimal                        @map("team_commission_pool") @db.Decimal(14, 2)
+  leaderBase             Decimal                        @map("leader_base") @db.Decimal(14, 2)
+  bigLeaderEmployeeId    String?                        @map("big_leader_employee_id") @db.Uuid
+  bigLeaderCommission    Decimal                        @default(0) @map("big_leader_commission") @db.Decimal(14, 2)
+  bigLeaderPayrollItemId String?                        @map("big_leader_payroll_item_id") @db.Uuid
+  calculationTrace       Json                           @map("calculation_trace")
+  status                 MarketingCommissionCycleStatus @default(calculated)
+  finalizedAt            DateTime?                      @map("finalized_at") @db.Timestamptz()
+  createdAt              DateTime                       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt              DateTime                       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy              String?                        @map("created_by") @db.Uuid
+  updatedBy              String?                        @map("updated_by") @db.Uuid
+  deletedAt              DateTime?                      @map("deleted_at") @db.Timestamptz()
+  deletedBy              String?                        @map("deleted_by") @db.Uuid
+
+  company            Company            @relation(fields: [companyId], references: [id])
+  team               MarketingTeam      @relation(fields: [teamId], references: [id])
+  earnCycle          PayrollCycle       @relation("MarketingEarnCycle", fields: [earnCycleId], references: [id])
+  payCycle           PayrollCycle?      @relation("MarketingPayCycle", fields: [payCycleId], references: [id])
+  bigLeader          Employee?          @relation("MarketingCycleBigLeader", fields: [bigLeaderEmployeeId], references: [id])
+  bigLeaderPayrollItem PayrollItem?     @relation("MarketingBigLeaderPayrollItem", fields: [bigLeaderPayrollItemId], references: [id])
+  memberResults      MarketingCommissionMemberResult[]
+  redistributions    MarketingCommissionRedistribution[]
+  carryForwards      MarketingCommissionCarryForward[]
+
+  @@unique([companyId, teamId, earnCycleId])
+  @@index([companyId, status])
+  @@map("marketing_commission_cycles")
+  @@schema("commission")
+}
+
+model MarketingCommissionMemberResult {
+  id                   String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cycleId              String                          @map("cycle_id") @db.Uuid
+  employeeId           String                          @map("employee_id") @db.Uuid
+  roleLevel            RoleLevel                       @map("role_level")
+  achievedCandidates   Decimal                         @default(0) @map("achieved_candidates") @db.Decimal(10, 2)
+  targetCandidates     Decimal                         @default(24) @map("target_candidates") @db.Decimal(10, 2)
+  kpiQualified         Boolean                         @default(false) @map("kpi_qualified")
+  kpiExempt            Boolean                         @default(false) @map("kpi_exempt")
+  tenureMonth          Int                             @map("tenure_month")
+  rampPercent          Decimal                         @map("ramp_percent") @db.Decimal(6, 4)
+  rampOverridePercent  Decimal?                        @map("ramp_override_percent") @db.Decimal(6, 4)
+  memberCount          Int                             @map("member_count")
+  baseShare            Decimal                         @map("base_share") @db.Decimal(14, 2)
+  rampedAmount         Decimal                         @map("ramped_amount") @db.Decimal(14, 2)
+  redistributionBonus  Decimal                         @default(0) @map("redistribution_bonus") @db.Decimal(14, 2)
+  poolPayout           Decimal                         @map("pool_payout") @db.Decimal(14, 2)
+  carryForwardIn       Decimal                         @default(0) @map("carry_forward_in") @db.Decimal(14, 2)
+  carryForwardOut      Decimal                         @default(0) @map("carry_forward_out") @db.Decimal(14, 2)
+  carryExpired         Decimal                         @default(0) @map("carry_expired") @db.Decimal(14, 2)
+  finalPayout          Decimal                         @default(0) @map("final_payout") @db.Decimal(14, 2)
+  status               MarketingCommissionMemberStatus @default(no_payout)
+  payrollItemId        String?                         @map("payroll_item_id") @db.Uuid
+  calculationTrace     Json                            @map("calculation_trace")
+  createdAt            DateTime                        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime                        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy            String?                         @map("created_by") @db.Uuid
+  updatedBy            String?                         @map("updated_by") @db.Uuid
+
+  cycle       MarketingCommissionCycle @relation(fields: [cycleId], references: [id])
+  employee    Employee                 @relation(fields: [employeeId], references: [id])
+  payrollItem PayrollItem?             @relation("MarketingMemberPayrollItem", fields: [payrollItemId], references: [id])
+  redistributionsSource MarketingCommissionRedistribution[] @relation("MarketingRedistributionSource")
+  carryForwardsCreated  MarketingCommissionCarryForward[] @relation("MarketingCarrySource")
+  carryForwardsRecovered MarketingCommissionCarryForward[] @relation("MarketingCarryRecovery")
+
+  @@unique([cycleId, employeeId])
+  @@index([employeeId])
+  @@map("marketing_commission_member_results")
+  @@schema("commission")
+}
+
+model MarketingCommissionCarryForward {
+  id                     String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId              String                         @map("company_id") @db.Uuid
+  teamId                 String                         @map("team_id") @db.Uuid
+  employeeId             String                         @map("employee_id") @db.Uuid
+  sourceCycleId          String                         @map("source_cycle_id") @db.Uuid
+  sourceMemberResultId   String                         @map("source_member_result_id") @db.Uuid
+  amount                 Decimal                        @db.Decimal(14, 2)
+  status                 MarketingCommissionCarryStatus @default(pending)
+  recoveredCycleId       String?                        @map("recovered_cycle_id") @db.Uuid
+  recoveredMemberResultId String?                        @map("recovered_member_result_id") @db.Uuid
+  expiredCycleId         String?                        @map("expired_cycle_id") @db.Uuid
+  createdAt              DateTime                       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt              DateTime                       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy              String?                        @map("created_by") @db.Uuid
+  updatedBy              String?                        @map("updated_by") @db.Uuid
+  deletedAt              DateTime?                      @map("deleted_at") @db.Timestamptz()
+  deletedBy              String?                        @map("deleted_by") @db.Uuid
+
+  company              Company                         @relation(fields: [companyId], references: [id])
+  team                 MarketingTeam                   @relation(fields: [teamId], references: [id])
+  employee             Employee                        @relation(fields: [employeeId], references: [id])
+  sourceCycle          MarketingCommissionCycle        @relation(fields: [sourceCycleId], references: [id])
+  sourceMemberResult   MarketingCommissionMemberResult @relation("MarketingCarrySource", fields: [sourceMemberResultId], references: [id])
+  recoveredMemberResult MarketingCommissionMemberResult? @relation("MarketingCarryRecovery", fields: [recoveredMemberResultId], references: [id])
+
+  @@index([employeeId, status])
+  @@index([teamId, status])
+  @@map("marketing_commission_carry_forwards")
+  @@schema("commission")
+}
+
+model MarketingCommissionRedistribution {
+  id                   String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cycleId              String                              @map("cycle_id") @db.Uuid
+  redistributionType   MarketingCommissionRedistributionType @map("redistribution_type")
+  sourceMemberResultId String?                             @map("source_member_result_id") @db.Uuid
+  recipientEmployeeId  String                              @map("recipient_employee_id") @db.Uuid
+  amount               Decimal                             @db.Decimal(14, 2)
+  createdAt            DateTime                            @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy            String?                             @map("created_by") @db.Uuid
+
+  cycle              MarketingCommissionCycle         @relation(fields: [cycleId], references: [id])
+  sourceMemberResult MarketingCommissionMemberResult? @relation("MarketingRedistributionSource", fields: [sourceMemberResultId], references: [id])
+  recipient          Employee                         @relation("MarketingRedistributionRecipient", fields: [recipientEmployeeId], references: [id])
+
+  @@index([cycleId])
+  @@index([recipientEmployeeId])
+  @@map("marketing_commission_redistributions")
+  @@schema("commission")
+}
+
+model AdminCommissionEmployeeProfile {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String          @map("company_id") @db.Uuid
+  employeeId   String          @map("employee_id") @db.Uuid
+  officeType   AdminOfficeType @map("office_type")
+  defaultShift AdminShiftType  @default(day) @map("default_shift")
+  isActive     Boolean         @default(true) @map("is_active")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?         @map("created_by") @db.Uuid
+  updatedBy    String?         @map("updated_by") @db.Uuid
+  deletedAt    DateTime?       @map("deleted_at") @db.Timestamptz()
+  deletedBy    String?         @map("deleted_by") @db.Uuid
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([companyId, employeeId])
+  @@index([companyId, isActive])
+  @@map("admin_commission_employee_profiles")
+  @@schema("commission")
+}
+
+model AdminCommissionShiftSegment {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String         @map("company_id") @db.Uuid
+  employeeId   String         @map("employee_id") @db.Uuid
+  earnCycleId  String         @map("earn_cycle_id") @db.Uuid
+  shift        AdminShiftType
+  segmentStart DateTime       @map("segment_start") @db.Date
+  segmentEnd   DateTime       @map("segment_end") @db.Date
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?        @map("created_by") @db.Uuid
+  updatedBy    String?        @map("updated_by") @db.Uuid
+  deletedAt    DateTime?      @map("deleted_at") @db.Timestamptz()
+  deletedBy    String?        @map("deleted_by") @db.Uuid
+
+  company   Company      @relation(fields: [companyId], references: [id])
+  employee  Employee     @relation(fields: [employeeId], references: [id])
+  earnCycle PayrollCycle @relation("AdminShiftSegmentEarnCycle", fields: [earnCycleId], references: [id])
+
+  @@index([companyId, earnCycleId])
+  @@index([employeeId, earnCycleId])
+  @@map("admin_commission_shift_segments")
+  @@schema("commission")
+}
+
+model AdminCommissionCycle {
+  id               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String                     @map("company_id") @db.Uuid
+  earnCycleId      String                     @map("earn_cycle_id") @db.Uuid
+  payCycleId       String?                    @map("pay_cycle_id") @db.Uuid
+  netProfit        Decimal                    @map("net_profit") @db.Decimal(14, 2)
+  adminPool        Decimal                    @map("admin_pool") @db.Decimal(14, 2)
+  poolA            Decimal                    @map("pool_a") @db.Decimal(14, 2)
+  poolB            Decimal                    @map("pool_b") @db.Decimal(14, 2)
+  totalPenalties   Decimal                    @default(0) @map("total_penalties") @db.Decimal(14, 2)
+  totalRedistributed Decimal                  @default(0) @map("total_redistributed") @db.Decimal(14, 2)
+  totalPayable     Decimal                    @default(0) @map("total_payable") @db.Decimal(14, 2)
+  frontOfficeTotal Decimal                    @default(0) @map("front_office_total") @db.Decimal(14, 2)
+  backOfficeTotal  Decimal                    @default(0) @map("back_office_total") @db.Decimal(14, 2)
+  calculationTrace Json                       @map("calculation_trace")
+  status           AdminCommissionCycleStatus @default(calculated)
+  finalizedAt      DateTime?                  @map("finalized_at") @db.Timestamptz()
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy        String?                    @map("created_by") @db.Uuid
+  updatedBy        String?                    @map("updated_by") @db.Uuid
+  deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz()
+  deletedBy        String?                    @map("deleted_by") @db.Uuid
+
+  company         Company                        @relation(fields: [companyId], references: [id])
+  earnCycle       PayrollCycle                   @relation("AdminEarnCycle", fields: [earnCycleId], references: [id])
+  payCycle        PayrollCycle?                  @relation("AdminPayCycle", fields: [payCycleId], references: [id])
+  memberResults   AdminCommissionMemberResult[]
+  penalties       AdminCommissionPenalty[]
+  redistributions AdminCommissionRedistribution[]
+
+  @@unique([companyId, earnCycleId])
+  @@index([companyId, status])
+  @@map("admin_commission_cycles")
+  @@schema("commission")
+}
+
+model AdminCommissionMemberResult {
+  id                  String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cycleId             String                      @map("cycle_id") @db.Uuid
+  employeeId          String                      @map("employee_id") @db.Uuid
+  officeType          AdminOfficeType             @map("office_type")
+  daysWorkedInCycle   Decimal                     @map("days_worked_in_cycle") @db.Decimal(8, 2)
+  cycleDays           Decimal                     @map("cycle_days") @db.Decimal(8, 2)
+  extraLeaveDays      Decimal                     @default(0) @map("extra_leave_days") @db.Decimal(8, 2)
+  poolAShare          Decimal                     @map("pool_a_share") @db.Decimal(14, 2)
+  poolBShare          Decimal                     @map("pool_b_share") @db.Decimal(14, 2)
+  basePoolAmount      Decimal                     @map("base_pool_amount") @db.Decimal(14, 2)
+  prorateFactor       Decimal                     @map("prorate_factor") @db.Decimal(8, 4)
+  proratedBase        Decimal                     @map("prorated_base") @db.Decimal(14, 2)
+  penaltyRate         Decimal                     @default(0) @map("penalty_rate") @db.Decimal(8, 4)
+  penaltyDeduction    Decimal                     @default(0) @map("penalty_deduction") @db.Decimal(14, 2)
+  redistributionBonus Decimal                     @default(0) @map("redistribution_bonus") @db.Decimal(14, 2)
+  finalPayout         Decimal                     @default(0) @map("final_payout") @db.Decimal(14, 2)
+  shiftSegments       Json                        @map("shift_segments")
+  status              AdminCommissionMemberStatus @default(no_payout)
+  payrollItemId       String?                     @map("payroll_item_id") @db.Uuid
+  calculationTrace    Json                        @map("calculation_trace")
+  createdAt           DateTime                    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy           String?                     @map("created_by") @db.Uuid
+  updatedBy           String?                     @map("updated_by") @db.Uuid
+
+  cycle       AdminCommissionCycle          @relation(fields: [cycleId], references: [id])
+  employee    Employee                      @relation(fields: [employeeId], references: [id])
+  payrollItem PayrollItem?                  @relation("AdminMemberPayrollItem", fields: [payrollItemId], references: [id])
+  penalties   AdminCommissionPenalty[]
+  redistributionsSource AdminCommissionRedistribution[] @relation("AdminRedistributionSource")
+
+  @@unique([cycleId, employeeId])
+  @@index([employeeId])
+  @@map("admin_commission_member_results")
+  @@schema("commission")
+}
+
+model AdminCommissionPenalty {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cycleId          String   @map("cycle_id") @db.Uuid
+  memberResultId   String   @map("member_result_id") @db.Uuid
+  employeeId       String   @map("employee_id") @db.Uuid
+  extraLeaveDays   Decimal  @map("extra_leave_days") @db.Decimal(8, 2)
+  penaltyRate      Decimal  @map("penalty_rate") @db.Decimal(8, 4)
+  deductedAmount   Decimal  @map("deducted_amount") @db.Decimal(14, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy        String?  @map("created_by") @db.Uuid
+
+  cycle        AdminCommissionCycle        @relation(fields: [cycleId], references: [id])
+  memberResult AdminCommissionMemberResult @relation(fields: [memberResultId], references: [id])
+  employee     Employee                    @relation(fields: [employeeId], references: [id])
+
+  @@index([cycleId])
+  @@index([employeeId])
+  @@map("admin_commission_penalties")
+  @@schema("commission")
+}
+
+model AdminCommissionRedistribution {
+  id                 String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cycleId            String                            @map("cycle_id") @db.Uuid
+  redistributionType AdminCommissionRedistributionType @map("redistribution_type")
+  shift              AdminShiftType
+  sourceMemberResultId String?                         @map("source_member_result_id") @db.Uuid
+  recipientEmployeeId  String                          @map("recipient_employee_id") @db.Uuid
+  amount             Decimal                           @db.Decimal(14, 2)
+  createdAt          DateTime                          @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy          String?                           @map("created_by") @db.Uuid
+
+  cycle              AdminCommissionCycle         @relation(fields: [cycleId], references: [id])
+  sourceMemberResult AdminCommissionMemberResult? @relation("AdminRedistributionSource", fields: [sourceMemberResultId], references: [id])
+  recipient          Employee                     @relation("AdminRedistributionRecipient", fields: [recipientEmployeeId], references: [id])
+
+  @@index([cycleId])
+  @@index([recipientEmployeeId])
+  @@map("admin_commission_redistributions")
+  @@schema("commission")
+}
+
+model CommissionCycle {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String                @map("company_id") @db.Uuid
+  earnCycleId      String                @map("earn_cycle_id") @db.Uuid
+  type             CommissionCycleType
+  teamId           String?               @map("team_id") @db.Uuid
+  sourceCycleId    String                @map("source_cycle_id") @db.Uuid
+  status           CommissionCycleStatus @default(draft)
+  approvedBy       String?               @map("approved_by") @db.Uuid
+  approvedAt       DateTime?             @map("approved_at") @db.Timestamptz()
+  finalizedBy      String?               @map("finalized_by") @db.Uuid
+  finalizedAt      DateTime?             @map("finalized_at") @db.Timestamptz()
+  lockedBy         String?               @map("locked_by") @db.Uuid
+  lockedAt         DateTime?             @map("locked_at") @db.Timestamptz()
+  totalCommission  Decimal               @default(0) @map("total_commission") @db.Decimal(14, 2)
+  totalRecipients  Int                   @default(0) @map("total_recipients")
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy        String?               @map("created_by") @db.Uuid
+  updatedBy        String?               @map("updated_by") @db.Uuid
+  deletedAt        DateTime?             @map("deleted_at") @db.Timestamptz()
+  deletedBy        String?               @map("deleted_by") @db.Uuid
+
+  company   Company      @relation(fields: [companyId], references: [id])
+  earnCycle PayrollCycle @relation("CommissionCycleEarn", fields: [earnCycleId], references: [id])
+  team      MarketingTeam? @relation(fields: [teamId], references: [id])
+  audits    CommissionCycleAudit[]
+  adjustments CommissionAdjustmentRequest[]
+
+  @@unique([companyId, type, sourceCycleId])
+  @@index([companyId, earnCycleId, type])
+  @@index([companyId, status])
+  @@map("commission_cycles")
+  @@schema("commission")
+}
+
+model CommissionCycleAudit {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commissionCycleId String                     @map("commission_cycle_id") @db.Uuid
+  action            CommissionCycleAuditAction
+  userId            String                     @map("user_id") @db.Uuid
+  beforeStatus      CommissionCycleStatus?     @map("before_status")
+  afterStatus       CommissionCycleStatus      @map("after_status")
+  metadata          Json?
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz()
+
+  commissionCycle CommissionCycle @relation(fields: [commissionCycleId], references: [id])
+
+  @@index([commissionCycleId, createdAt])
+  @@map("commission_cycle_audits")
+  @@schema("commission")
+}
+
+model CommissionAdjustmentRequest {
+  id                   String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId            String                        @map("company_id") @db.Uuid
+  earnCycleId          String                        @map("earn_cycle_id") @db.Uuid
+  commissionCycleId    String                        @map("commission_cycle_id") @db.Uuid
+  type                 CommissionCycleType
+  teamId               String?                       @map("team_id") @db.Uuid
+  employeeId           String                        @map("employee_id") @db.Uuid
+  sourceResultId       String?                       @map("source_result_id") @db.Uuid
+  reason               String
+  adjustmentAmount     Decimal                       @map("adjustment_amount") @db.Decimal(14, 2)
+  direction            CommissionAdjustmentDirection
+  status               CommissionAdjustmentStatus    @default(draft)
+  workflowInstanceId   String?                       @map("workflow_instance_id") @db.Uuid
+  submittedBy          String?                       @map("submitted_by") @db.Uuid
+  submittedAt          DateTime?                     @map("submitted_at") @db.Timestamptz()
+  approvedBy           String?                       @map("approved_by") @db.Uuid
+  approvedAt           DateTime?                     @map("approved_at") @db.Timestamptz()
+  appliedBy            String?                       @map("applied_by") @db.Uuid
+  appliedAt            DateTime?                     @map("applied_at") @db.Timestamptz()
+  rejectedBy           String?                       @map("rejected_by") @db.Uuid
+  rejectedAt           DateTime?                     @map("rejected_at") @db.Timestamptz()
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime                      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy            String?                       @map("created_by") @db.Uuid
+  updatedBy            String?                       @map("updated_by") @db.Uuid
+  deletedAt            DateTime?                     @map("deleted_at") @db.Timestamptz()
+  deletedBy            String?                       @map("deleted_by") @db.Uuid
+
+  company         Company         @relation(fields: [companyId], references: [id])
+  earnCycle       PayrollCycle    @relation("CommissionAdjustmentEarn", fields: [earnCycleId], references: [id])
+  commissionCycle CommissionCycle @relation(fields: [commissionCycleId], references: [id])
+  employee        Employee        @relation("CommissionAdjustmentEmployee", fields: [employeeId], references: [id])
+  entries         CommissionAdjustmentEntry[]
+  audits          CommissionAdjustmentAudit[]
+
+  @@index([companyId, earnCycleId, type])
+  @@index([employeeId, status])
+  @@index([commissionCycleId])
+  @@map("commission_adjustment_requests")
+  @@schema("commission")
+}
+
+model CommissionAdjustmentEntry {
+  id                   String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adjustmentRequestId  String                       @map("adjustment_request_id") @db.Uuid
+  employeeId           String                       @map("employee_id") @db.Uuid
+  sourceResultId       String                       @map("source_result_id") @db.Uuid
+  sourceResultType     CommissionAdjustmentSourceType @map("source_result_type")
+  originalAmount       Decimal                      @map("original_amount") @db.Decimal(14, 2)
+  adjustmentAmount     Decimal                      @map("adjustment_amount") @db.Decimal(14, 2)
+  netAmount            Decimal                      @map("net_amount") @db.Decimal(14, 2)
+  payrollItemId        String?                      @map("payroll_item_id") @db.Uuid
+  createdAt            DateTime                     @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy            String?                      @map("created_by") @db.Uuid
+
+  adjustmentRequest CommissionAdjustmentRequest @relation(fields: [adjustmentRequestId], references: [id])
+  employee          Employee                    @relation("CommissionAdjustmentEntryEmployee", fields: [employeeId], references: [id])
+  payrollItem       PayrollItem?                @relation("CommissionAdjustmentPayrollItem", fields: [payrollItemId], references: [id])
+
+  @@index([adjustmentRequestId])
+  @@index([employeeId])
+  @@map("commission_adjustment_entries")
+  @@schema("commission")
+}
+
+model CommissionAdjustmentAudit {
+  id                  String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adjustmentRequestId String                          @map("adjustment_request_id") @db.Uuid
+  action              CommissionAdjustmentAuditAction
+  userId              String                          @map("user_id") @db.Uuid
+  beforeStatus        CommissionAdjustmentStatus?     @map("before_status")
+  afterStatus         CommissionAdjustmentStatus      @map("after_status")
+  metadata            Json?
+  createdAt           DateTime                        @default(now()) @map("created_at") @db.Timestamptz()
+
+  adjustmentRequest CommissionAdjustmentRequest @relation(fields: [adjustmentRequestId], references: [id])
+
+  @@index([adjustmentRequestId, createdAt])
+  @@map("commission_adjustment_audits")
+  @@schema("commission")
+}
+
+model CommissionDeclaration {
+  id           String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId   String                      @map("employee_id") @db.Uuid
+  companyId    String                      @map("company_id") @db.Uuid
+  status       CommissionDeclarationStatus @default(draft)
+  submittedAt  DateTime?                   @map("submitted_at") @db.Timestamptz()
+  reviewedAt   DateTime?                   @map("reviewed_at") @db.Timestamptz()
+  reviewedBy   String?                     @map("reviewed_by") @db.Uuid
+  rejectReason String?                     @map("reject_reason")
+  createdAt    DateTime                    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?                     @map("created_by") @db.Uuid
+  updatedBy    String?                     @map("updated_by") @db.Uuid
+  deletedAt    DateTime?                   @map("deleted_at") @db.Timestamptz()
+  deletedBy    String?                     @map("deleted_by") @db.Uuid
+
+  employee    Employee                         @relation(fields: [employeeId], references: [id])
+  company     Company                          @relation(fields: [companyId], references: [id])
+  assignments CommissionDeclarationAssignment[]
+
+  @@index([employeeId, status])
+  @@index([companyId, status])
+  @@map("commission_declarations")
+  @@schema("commission")
+}
+
+model CommissionDeclarationAssignment {
+  id               String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  declarationId    String                            @map("declaration_id") @db.Uuid
+  companyId        String                            @map("company_id") @db.Uuid
+  teamId           String                            @map("team_id") @db.Uuid
+  assignmentType   CommissionDeclarationAssignmentType @map("assignment_type")
+  commissionMethod CommissionDeclarationMethod       @map("commission_method")
+  bigLeaderPercent Decimal?                          @map("big_leader_percent") @db.Decimal(5, 2)
+  employeePercent  Decimal?                          @map("employee_percent") @db.Decimal(5, 2)
+  sortOrder        Int                               @default(0) @map("sort_order")
+  createdAt        DateTime                          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime                          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt        DateTime?                         @map("deleted_at") @db.Timestamptz()
+
+  declaration CommissionDeclaration @relation(fields: [declarationId], references: [id])
+  company     Company               @relation(fields: [companyId], references: [id])
+  team        MarketingTeam         @relation(fields: [teamId], references: [id])
+
+  @@index([declarationId])
+  @@index([companyId, teamId])
+  @@map("commission_declaration_assignments")
+  @@schema("commission")
+}
+
+// ============================================================================
+// DOMAIN 9: FINANCE
+// ============================================================================
+
+model AdvanceRequest {
+  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId               String               @map("employee_id") @db.Uuid
+  companyId                String               @map("company_id") @db.Uuid
+  amount                   Decimal              @db.Decimal(14, 2)
+  reason                   String?
+  workflowInstanceId       String?              @map("workflow_instance_id") @db.Uuid
+  status                   FinanceRequestStatus @default(pending)
+  recoveredPayrollItemId   String?              @map("recovered_payroll_item_id") @db.Uuid
+  createdAt                DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt                DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy                String?              @map("created_by") @db.Uuid
+  updatedBy                String?              @map("updated_by") @db.Uuid
+  deletedAt                DateTime?            @map("deleted_at") @db.Timestamptz()
+  deletedBy                String?              @map("deleted_by") @db.Uuid
+
+  employee             Employee          @relation(fields: [employeeId], references: [id])
+  company              Company           @relation(fields: [companyId], references: [id])
+  workflowInstance     WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
+  recoveredPayrollItem PayrollItem?      @relation(fields: [recoveredPayrollItemId], references: [id])
+
+  /// NOTE: CHECK amount>0 — raw SQL
+  @@index([employeeId, status])
+  @@map("advance_requests")
+  @@schema("finance")
+}
+
+model DepositRefund {
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId             String               @map("employee_id") @db.Uuid
+  owningCompanyId        String               @map("owning_company_id") @db.Uuid
+  amount                 Decimal              @db.Decimal(14, 2)
+  workflowInstanceId     String?              @map("workflow_instance_id") @db.Uuid
+  status                 FinanceRequestStatus @default(pending)
+  refundedPayrollItemId  String?              @map("refunded_payroll_item_id") @db.Uuid
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy             String?               @map("created_by") @db.Uuid
+  updatedBy             String?               @map("updated_by") @db.Uuid
+  deletedAt            DateTime?              @map("deleted_at") @db.Timestamptz()
+  deletedBy            String?                @map("deleted_by") @db.Uuid
+
+  employee             Employee          @relation(fields: [employeeId], references: [id])
+  owningCompany        Company           @relation(fields: [owningCompanyId], references: [id])
+  workflowInstance     WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
+  refundedPayrollItem  PayrollItem?      @relation(fields: [refundedPayrollItemId], references: [id])
+
+  /// NOTE: CHECK amount>0 — raw SQL
+  @@index([employeeId])
+  @@map("deposit_refunds")
+  @@schema("finance")
+}
+
+model LedgerEntry {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String          @map("company_id") @db.Uuid
+  entryDate   DateTime        @map("entry_date") @db.Date
+  account     String          @db.VarChar(60)
+  direction   LedgerDirection
+  amount      Decimal         @db.Decimal(14, 2)
+  refType     String?         @map("ref_type") @db.VarChar(60)
+  refId       String?         @map("ref_id") @db.Uuid
+  description String?
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?         @map("created_by") @db.Uuid
+  updatedBy   String?         @map("updated_by") @db.Uuid
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  /// NOTE: CHECK amount>=0 — raw SQL
+  @@index([companyId, entryDate])
+  @@index([refType, refId])
+  @@map("ledger_entries")
+  @@schema("finance")
+}
+// ============================================================================
+// DOMAIN 10: PERFORMANCE
+// ============================================================================
+
+model PerformanceCycle {
+  id          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String?                @map("company_id") @db.Uuid
+  periodStart DateTime               @map("period_start") @db.Date
+  periodEnd   DateTime               @map("period_end") @db.Date
+  status      PerformanceCycleStatus @default(open)
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?                @map("created_by") @db.Uuid
+  updatedBy   String?                @map("updated_by") @db.Uuid
+  deletedAt   DateTime?              @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?                @map("deleted_by") @db.Uuid
+
+  company     Company?     @relation(fields: [companyId], references: [id])
+  evaluations Evaluation[]
+
+  /// NOTE: CHECK period_end>=period_start — raw SQL
+  @@index([companyId])
+  @@map("performance_cycles")
+  @@schema("performance")
+}
+
+model EvaluationWeight {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dimension     PerformanceDimension
+  weight        Decimal              @db.Decimal(10, 4)
+  effectiveFrom DateTime             @map("effective_from") @db.Date
+  effectiveTo   DateTime?            @map("effective_to") @db.Date
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?              @map("created_by") @db.Uuid
+  updatedBy     String?              @map("updated_by") @db.Uuid
+  deletedAt     DateTime?            @map("deleted_at") @db.Timestamptz()
+  deletedBy     String?              @map("deleted_by") @db.Uuid
+
+  /// NOTE: CHECK weight in [0,1], period — raw SQL
+  @@index([dimension])
+  @@map("evaluation_weights")
+  @@schema("performance")
+}
+
+model Evaluation {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  performanceCycleId String           @map("performance_cycle_id") @db.Uuid
+  employeeId         String           @map("employee_id") @db.Uuid
+  companyId          String           @map("company_id") @db.Uuid
+  totalScore         Decimal          @default(0) @map("total_score") @db.Decimal(6, 2)
+  status             EvaluationStatus @default(draft)
+  aiRecommendationId String?          @map("ai_recommendation_id") @db.Uuid
+  finalizedBy        String?          @map("finalized_by") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?          @map("created_by") @db.Uuid
+  updatedBy          String?          @map("updated_by") @db.Uuid
+  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?          @map("deleted_by") @db.Uuid
+
+  performanceCycle PerformanceCycle  @relation(fields: [performanceCycleId], references: [id])
+  employee         Employee          @relation(fields: [employeeId], references: [id])
+  company          Company           @relation(fields: [companyId], references: [id])
+  aiRecommendation AiRecommendation? @relation(fields: [aiRecommendationId], references: [id])
+  finalizer        User?             @relation(fields: [finalizedBy], references: [id])
+
+  scores EvaluationScore[]
+  probationReviews ProbationReview[]
+
+  /// NOTE: AI advisory only; finalized_by must be human (app-enforced)
+  @@unique([performanceCycleId, employeeId])
+  @@index([employeeId])
+  @@map("evaluations")
+  @@schema("performance")
+}
+
+model EvaluationScore {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evaluationId  String               @map("evaluation_id") @db.Uuid
+  dimension     PerformanceDimension
+  rawScore      Decimal              @default(0) @map("raw_score") @db.Decimal(6, 2)
+  weightApplied Decimal              @default(0) @map("weight_applied") @db.Decimal(10, 4)
+  weightedScore Decimal              @default(0) @map("weighted_score") @db.Decimal(8, 4)
+  scoredBy      PerformanceScorer    @default(system) @map("scored_by")
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?              @map("created_by") @db.Uuid
+  updatedBy     String?              @map("updated_by") @db.Uuid
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id])
+
+  @@unique([evaluationId, dimension, scoredBy])
+  @@index([evaluationId])
+  @@map("evaluation_scores")
+  @@schema("performance")
+}
+
+// ============================================================================
+// DOMAIN 11: RECRUITMENT
+// ============================================================================
+
+model Candidate {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId           String         @map("company_id") @db.Uuid
+  recruiterEmployeeId String         @map("recruiter_employee_id") @db.Uuid
+  fullName            String         @map("full_name") @db.VarChar(160)
+  phone               String?        @db.VarChar(32)
+  source              String?        @db.VarChar(80)
+  stage               CandidateStage @default(new)
+  isUniqueCounted     Boolean        @default(false) @map("is_unique_counted")
+  countedCycleId      String?        @map("counted_cycle_id") @db.Uuid
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy           String?        @map("created_by") @db.Uuid
+  updatedBy           String?        @map("updated_by") @db.Uuid
+  deletedAt           DateTime?      @map("deleted_at") @db.Timestamptz()
+  deletedBy           String?        @map("deleted_by") @db.Uuid
+
+  company      Company       @relation(fields: [companyId], references: [id])
+  recruiter    Employee      @relation(fields: [recruiterEmployeeId], references: [id])
+  countedCycle PayrollCycle? @relation(fields: [countedCycleId], references: [id])
+
+  pipelineEvents RecruitmentPipelineEvent[]
+  interviews     Interview[]
+  offers         Offer[]
+
+  /// NOTE: unique (company_id, phone) WHERE phone IS NOT NULL AND deleted_at IS NULL — raw SQL
+  @@index([recruiterEmployeeId, countedCycleId])
+  @@map("candidates")
+  @@schema("recruitment")
+}
+
+model RecruitmentPipelineEvent {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId String          @map("candidate_id") @db.Uuid
+  fromStage   CandidateStage? @map("from_stage")
+  toStage     CandidateStage  @map("to_stage")
+  changedBy   String?         @map("changed_by") @db.Uuid
+  changedAt   DateTime        @default(now()) @map("changed_at") @db.Timestamptz()
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+  changer   User?     @relation(fields: [changedBy], references: [id])
+
+  /// NOTE: append-only (UPDATE/DELETE blocked by trigger) — raw SQL
+  @@index([candidateId])
+  @@map("recruitment_pipeline_events")
+  @@schema("recruitment")
+}
+
+// ============================================================================
+// DOMAIN 12: REFERRAL
+// ============================================================================
+
+model Referral {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referrerEmployeeId  String               @map("referrer_employee_id") @db.Uuid
+  referredEmployeeId  String               @map("referred_employee_id") @db.Uuid
+  companyId           String               @map("company_id") @db.Uuid
+  rewardAmount        Decimal              @default(2000) @map("reward_amount") @db.Decimal(14, 2)
+  qualifyingCondition QualifyingCondition? @map("qualifying_condition")
+  qualifiedAt         DateTime?            @map("qualified_at") @db.Timestamptz()
+  status              ReferralStatus       @default(pending)
+  payrollItemId       String?              @map("payroll_item_id") @db.Uuid
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy           String?              @map("created_by") @db.Uuid
+  updatedBy           String?              @map("updated_by") @db.Uuid
+  deletedAt           DateTime?            @map("deleted_at") @db.Timestamptz()
+  deletedBy           String?              @map("deleted_by") @db.Uuid
+
+  referrer    Employee     @relation("Referrer", fields: [referrerEmployeeId], references: [id])
+  referred    Employee     @relation("Referred", fields: [referredEmployeeId], references: [id])
+  company     Company      @relation(fields: [companyId], references: [id])
+  payrollItem PayrollItem? @relation(fields: [payrollItemId], references: [id])
+  duplicateChecks ReferralDuplicateCheck[]
+
+  /// NOTE: CHECK referrer<>referred; unique (referred_employee_id) WHERE deleted_at IS NULL — prevents duplicate reward — raw SQL
+  @@index([referrerEmployeeId])
+  @@map("referrals")
+  @@schema("referral")
+}
+
+// ============================================================================
+// DOMAIN 13: TRAINING
+// ============================================================================
+
+model TrainingCourse {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String    @db.VarChar(40)
+  title       String    @db.VarChar(200)
+  description String?
+  isMandatory Boolean   @default(false) @map("is_mandatory")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  assignments TrainingAssignment[]
+
+  /// NOTE: unique (code) WHERE deleted_at IS NULL — raw SQL
+  @@map("training_courses")
+  @@schema("training")
+}
+
+model TrainingAssignment {
+  id          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId    String                   @map("course_id") @db.Uuid
+  employeeId  String                   @map("employee_id") @db.Uuid
+  assignedAt  DateTime                 @default(now()) @map("assigned_at") @db.Timestamptz()
+  dueDate     DateTime?                @map("due_date") @db.Date
+  status      TrainingAssignmentStatus @default(assigned)
+  completedAt DateTime?                @map("completed_at") @db.Timestamptz()
+  score       Decimal?                 @db.Decimal(6, 2)
+  createdAt   DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?                  @map("created_by") @db.Uuid
+  updatedBy   String?                  @map("updated_by") @db.Uuid
+  deletedAt   DateTime?                @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?                  @map("deleted_by") @db.Uuid
+
+  course   TrainingCourse @relation(fields: [courseId], references: [id])
+  employee Employee       @relation(fields: [employeeId], references: [id])
+
+  /// NOTE: unique (course_id, employee_id) WHERE deleted_at IS NULL — raw SQL
+  @@index([employeeId])
+  @@map("training_assignments")
+  @@schema("training")
+}
+
+// ============================================================================
+// DOMAIN 14: ASSETS
+// ============================================================================
+
+model Asset {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String         @map("company_id") @db.Uuid
+  assetTag     String         @map("asset_tag") @db.VarChar(60)
+  name         String         @db.VarChar(160)
+  category     AssetCategory?
+  status       AssetStatus    @default(available)
+  purchaseDate DateTime?      @map("purchase_date") @db.Date
+  value        Decimal?       @db.Decimal(14, 2)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?        @map("created_by") @db.Uuid
+  updatedBy    String?        @map("updated_by") @db.Uuid
+  deletedAt    DateTime?      @map("deleted_at") @db.Timestamptz()
+  deletedBy    String?        @map("deleted_by") @db.Uuid
+
+  company       Company            @relation(fields: [companyId], references: [id])
+  assignments   AssetAssignment[]
+  events        AssetEvent[]
+  damageReports AssetDamageReport[]
+
+  /// NOTE: unique (asset_tag) WHERE deleted_at IS NULL — raw SQL
+  @@index([companyId])
+  @@index([category])
+  @@map("assets")
+  @@schema("assets")
+}
+
+model AssetAssignment {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assetId      String    @map("asset_id") @db.Uuid
+  employeeId   String    @map("employee_id") @db.Uuid
+  assignedAt   DateTime  @default(now()) @map("assigned_at") @db.Timestamptz()
+  returnedAt   DateTime? @map("returned_at") @db.Timestamptz()
+  conditionOut String?   @map("condition_out") @db.VarChar(120)
+  conditionIn  String?   @map("condition_in") @db.VarChar(120)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy    String?   @map("deleted_by") @db.Uuid
+
+  asset         Asset               @relation(fields: [assetId], references: [id])
+  employee      Employee            @relation(fields: [employeeId], references: [id])
+  damageReports AssetDamageReport[]
+
+  /// NOTE: unique active assignment per asset WHERE returned_at IS NULL AND deleted_at IS NULL — raw SQL
+  @@index([assetId])
+  @@index([employeeId])
+  @@map("asset_assignments")
+  @@schema("assets")
+}
+
+model AssetEvent {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assetId     String         @map("asset_id") @db.Uuid
+  eventType   AssetEventType @map("event_type")
+  payload     Json?
+  actorUserId String?        @map("actor_user_id") @db.Uuid
+  occurredAt  DateTime       @default(now()) @map("occurred_at") @db.Timestamptz()
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+
+  asset Asset @relation(fields: [assetId], references: [id])
+  actor User? @relation(fields: [actorUserId], references: [id])
+
+  /// NOTE: append-only (UPDATE/DELETE blocked by trigger) — raw SQL
+  @@index([assetId])
+  @@index([occurredAt])
+  @@map("asset_events")
+  @@schema("assets")
+}
+
+model AssetDamageReport {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assetId       String              @map("asset_id") @db.Uuid
+  assignmentId  String?             @map("assignment_id") @db.Uuid
+  reportedBy    String?             @map("reported_by") @db.Uuid
+  severity      AssetDamageSeverity
+  description   String
+  estimatedCost Decimal?            @map("estimated_cost") @db.Decimal(14, 2)
+  resolvedAt    DateTime?           @map("resolved_at") @db.Timestamptz()
+  resolvedBy    String?             @map("resolved_by") @db.Uuid
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?             @map("created_by") @db.Uuid
+  updatedBy     String?             @map("updated_by") @db.Uuid
+  deletedAt     DateTime?           @map("deleted_at") @db.Timestamptz()
+  deletedBy     String?             @map("deleted_by") @db.Uuid
+
+  asset      Asset             @relation(fields: [assetId], references: [id])
+  assignment AssetAssignment?  @relation(fields: [assignmentId], references: [id])
+  reporter   User?             @relation("AssetDamageReporter", fields: [reportedBy], references: [id])
+  resolver   User?             @relation("AssetDamageResolver", fields: [resolvedBy], references: [id])
+
+  @@index([assetId])
+  @@index([assignmentId])
+  @@map("asset_damage_reports")
+  @@schema("assets")
+}
+
+// ============================================================================
+// DOMAIN 15: KNOWLEDGE BASE
+// ============================================================================
+
+model KbArticle {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String?   @map("company_id") @db.Uuid
+  title       String    @db.VarChar(200)
+  slug        String    @db.VarChar(200)
+  body        String?
+  category    String?   @db.VarChar(80)
+  tags        String[]  @default([])
+  isPublished Boolean   @default(false) @map("is_published")
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  company  Company?           @relation(fields: [companyId], references: [id])
+  versions KbArticleVersion[]
+
+  /// NOTE: unique (slug) WHERE deleted_at IS NULL — raw SQL
+  @@index([companyId, isPublished])
+  @@map("kb_articles")
+  @@schema("knowledge")
+}
+
+model KbArticleVersion {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  version   Int
+  body      String?
+  editedBy  String?  @map("edited_by") @db.Uuid
+  editedAt  DateTime @default(now()) @map("edited_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  article KbArticle @relation(fields: [articleId], references: [id])
+  editor  User?     @relation(fields: [editedBy], references: [id])
+
+  @@unique([articleId, version])
+  @@index([articleId])
+  @@map("kb_article_versions")
+  @@schema("knowledge")
+}
+
+// ============================================================================
+// DOMAIN 16: AI
+// ============================================================================
+
+model AiConversation {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  channel   AiChannel @default(telegram)
+  startedAt DateTime  @default(now()) @map("started_at") @db.Timestamptz()
+  context   Json?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  user     User        @relation(fields: [userId], references: [id])
+  messages AiMessage[]
+
+  @@index([userId])
+  @@map("ai_conversations")
+  @@schema("ai")
+}
+
+model AiMessage {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  role           AiMessageRole
+  content        String?
+  tokens         Int?
+  model          String?       @db.VarChar(80)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@map("ai_messages")
+  @@schema("ai")
+}
+
+model AiRecommendation {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectType    String    @map("subject_type") @db.VarChar(60)
+  subjectId      String    @map("subject_id") @db.Uuid
+  recommendation String
+  rationale      Json?
+  confidence     Decimal?  @db.Decimal(5, 2)
+  model          String?   @db.VarChar(80)
+  acceptedBy     String?   @map("accepted_by") @db.Uuid
+  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz()
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  acceptor    User?        @relation(fields: [acceptedBy], references: [id])
+  evaluations Evaluation[]
+
+  /// NOTE: CHECK confidence in [0,100]; advisory only — never approves/terminates
+  @@index([subjectType, subjectId])
+  @@map("ai_recommendations")
+  @@schema("ai")
+}
+
+model AiEmbedding {
+  id         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceType String                @map("source_type") @db.VarChar(60)
+  sourceId   String                @map("source_id") @db.Uuid
+  chunk      String
+  embedding  Unsupported("vector(1536)")?
+  metadata   Json?
+  createdAt  DateTime              @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy  String?               @map("created_by") @db.Uuid
+  updatedBy  String?               @map("updated_by") @db.Uuid
+
+  /// NOTE: HNSW vector_cosine_ops index on embedding — raw SQL (Prisma cannot express)
+  @@index([sourceType, sourceId])
+  @@map("ai_embeddings")
+  @@schema("ai")
+}
+
+// ============================================================================
+// DOMAIN 17: REPORTING
+// ============================================================================
+
+model ReportSnapshot {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String?      @map("company_id") @db.Uuid
+  snapshotType SnapshotType @map("snapshot_type")
+  snapshotDate DateTime     @map("snapshot_date") @db.Date
+  periodStart  DateTime?    @map("period_start") @db.Date
+  periodEnd    DateTime?    @map("period_end") @db.Date
+  payload      Json
+  generatedAt  DateTime     @default(now()) @map("generated_at") @db.Timestamptz()
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?      @map("created_by") @db.Uuid
+  updatedBy    String?      @map("updated_by") @db.Uuid
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  /// NOTE: unique (COALESCE(company_id,zero-uuid), snapshot_type, snapshot_date) — expression index in raw SQL
+  @@index([snapshotType, snapshotDate])
+  @@map("report_snapshots")
+  @@schema("reporting")
+}
+
+model KpiDailyFact {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  factDate    DateTime @map("fact_date") @db.Date
+  metricKey   String   @map("metric_key") @db.VarChar(80)
+  metricValue Decimal  @default(0) @map("metric_value") @db.Decimal(18, 4)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, factDate, metricKey])
+  @@index([companyId, factDate])
+  @@map("kpi_daily_facts")
+  @@schema("reporting")
+}
+
+// ============================================================================
+// DOMAIN 18: TELEGRAM
+// ============================================================================
+
+model TelegramAccount {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  telegramUserId BigInt    @map("telegram_user_id")
+  chatId         BigInt?   @map("chat_id")
+  username       String?   @db.VarChar(120)
+  linkedAt       DateTime  @default(now()) @map("linked_at") @db.Timestamptz()
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id])
+
+  sessions TelegramSession[]
+  messages TelegramMessageLog[]
+
+  /// NOTE: unique (telegram_user_id) WHERE deleted_at IS NULL — raw SQL
+  @@index([userId])
+  @@map("telegram_accounts")
+  @@schema("telegram")
+}
+
+model TelegramSession {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  telegramAccountId String   @map("telegram_account_id") @db.Uuid
+  state             String   @default("idle") @db.VarChar(80)
+  context           Json?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy         String?  @map("created_by") @db.Uuid
+  updatedBy         String?  @map("updated_by") @db.Uuid
+
+  account TelegramAccount @relation(fields: [telegramAccountId], references: [id])
+
+  @@index([telegramAccountId])
+  @@map("telegram_sessions")
+  @@schema("telegram")
+}
+
+model TelegramMessageLog {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  telegramAccountId String            @map("telegram_account_id") @db.Uuid
+  direction         TelegramDirection
+  messageType       String?           @map("message_type") @db.VarChar(60)
+  payload           Json?
+  telegramMessageId BigInt?           @map("telegram_message_id")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+
+  account TelegramAccount @relation(fields: [telegramAccountId], references: [id])
+
+  /// NOTE: unique (account, telegram_message_id, direction) WHERE telegram_message_id IS NOT NULL — raw SQL
+  @@index([telegramAccountId])
+  @@map("telegram_messages_log")
+  @@schema("telegram")
+}
+
+model Announcement {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String?   @map("company_id") @db.Uuid
+  teamId      String?   @map("team_id") @db.Uuid
+  title       String    @db.VarChar(200)
+  body        String?
+  publishedAt DateTime? @map("published_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  company    Company? @relation(fields: [companyId], references: [id])
+  team       Team?    @relation(fields: [teamId], references: [id])
+  deliveries AnnouncementDelivery[]
+
+  @@index([companyId])
+  @@map("announcements")
+  @@schema("telegram")
+}
+
+model AnnouncementDelivery {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId String    @map("announcement_id") @db.Uuid
+  employeeId     String    @map("employee_id") @db.Uuid
+  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz()
+  readAt         DateTime? @map("read_at") @db.Timestamptz()
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@unique([announcementId, employeeId])
+  @@index([employeeId])
+  @@map("announcement_deliveries")
+  @@schema("telegram")
+}
+
+// ============================================================================
+// DOMAIN 19: SYSTEM (remainder)
+// ============================================================================
+
+model AuditLog {
+  id                  BigInt   @id @default(autoincrement())
+  actorUserId         String?  @map("actor_user_id") @db.Uuid
+  impersonatorUserId  String?  @map("impersonator_user_id") @db.Uuid
+  companyId           String?  @map("company_id") @db.Uuid
+  entityType          String   @map("entity_type") @db.VarChar(80)
+  entityId            String?  @map("entity_id") @db.Uuid
+  action              String   @db.VarChar(60)
+  before              Json?
+  after               Json?
+  ipAddress           String?  @map("ip_address") @db.Inet
+  occurredAt          DateTime @default(now()) @map("occurred_at") @db.Timestamptz()
+
+  /// NOTE: append-only (UPDATE/DELETE blocked by trigger); BIGSERIAL pk — raw SQL
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@index([occurredAt])
+  @@map("audit_logs")
+  @@schema("system")
+}
+
+model SystemSetting {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String?  @map("company_id") @db.Uuid
+  key       String   @db.VarChar(80)
+  value     Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  /// NOTE: unique (COALESCE(company_id,zero-uuid), key) — expression index in raw SQL
+  @@map("system_settings")
+  @@schema("system")
+}
+
+enum RuleConfigDomain {
+  marketing_commission
+  admin_commission
+
+  @@schema("system")
+}
+
+model RuleConfigProfile {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String           @map("company_id") @db.Uuid
+  domain    RuleConfigDomain
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  company  Company             @relation(fields: [companyId], references: [id])
+  versions RuleConfigVersion[]
+
+  @@unique([companyId, domain])
+  @@map("rule_config_profiles")
+  @@schema("system")
+}
+
+model RuleConfigVersion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId     String   @map("profile_id") @db.Uuid
+  versionNumber Int      @map("version_number")
+  config        Json
+  reason        String   @db.VarChar(500)
+  isActive      Boolean  @default(false) @map("is_active")
+  createdBy     String   @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  profile RuleConfigProfile @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, versionNumber])
+  @@index([profileId, isActive])
+  @@map("rule_config_versions")
+  @@schema("system")
+}
+
+model JobRun {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobName    String    @map("job_name") @db.VarChar(120)
+  status     JobStatus @default(running)
+  startedAt  DateTime  @default(now()) @map("started_at") @db.Timestamptz()
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz()
+  error      String?
+  payload    Json?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([jobName, startedAt])
+  @@map("job_runs")
+  @@schema("system")
+}
+
+model OutboxEvent {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aggregateType String    @map("aggregate_type") @db.VarChar(80)
+  aggregateId   String    @map("aggregate_id") @db.Uuid
+  eventType     String    @map("event_type") @db.VarChar(100)
+  payload       Json
+  occurredAt    DateTime  @default(now()) @map("occurred_at") @db.Timestamptz()
+  processedAt   DateTime? @map("processed_at") @db.Timestamptz()
+  attempts      Int       @default(0)
+
+  /// NOTE: partial index on occurred_at WHERE processed_at IS NULL — raw SQL
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_events")
+  @@schema("system")
+}
+
+model BackupRegistry {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  backupType  BackupType @map("backup_type")
+  location    String     @db.VarChar(512)
+  sizeBytes   BigInt?    @map("size_bytes")
+  startedAt   DateTime   @default(now()) @map("started_at") @db.Timestamptz()
+  completedAt DateTime?  @map("completed_at") @db.Timestamptz()
+  status      JobStatus  @default(running)
+  checksum    String?    @db.VarChar(128)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([startedAt])
+  @@map("backups_registry")
+  @@schema("system")
+}
+
+// ============================================================================
+// FINANCE MODULE EXTENSIONS (added 20260101000200_finance_extensions)
+// ============================================================================
+
+enum FinanceTransactionType {
+  revenue
+  expense
+
+  @@map("transaction_type")
+  @@schema("finance")
+}
+
+enum FinanceTransactionStatus {
+  draft
+  pending
+  approved
+  rejected
+  posted
+  void
+
+  @@map("transaction_status")
+  @@schema("finance")
+}
+
+enum BudgetPeriod {
+  monthly
+  quarterly
+  yearly
+
+  @@map("budget_period")
+  @@schema("finance")
+}
+
+model CostCenter {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  code            String    @db.VarChar(40)
+  name            String    @db.VarChar(160)
+  description     String?
+  parentId        String?   @map("parent_id") @db.Uuid
+  ownerEmployeeId String?   @map("owner_employee_id") @db.Uuid
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+
+  parent       CostCenter?  @relation("CostCenterHierarchy", fields: [parentId], references: [id])
+  children     CostCenter[] @relation("CostCenterHierarchy")
+  company      Company      @relation(fields: [companyId], references: [id])
+  budgets      Budget[]
+  transactions FinancialTransaction[]
+
+  /// NOTE: unique (company_id, code) WHERE deleted_at IS NULL — raw SQL
+  @@index([companyId])
+  @@index([parentId])
+  @@map("cost_centers")
+  @@schema("finance")
+}
+
+model Budget {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String       @map("company_id") @db.Uuid
+  costCenterId String?      @map("cost_center_id") @db.Uuid
+  name         String       @db.VarChar(160)
+  period       BudgetPeriod @default(monthly)
+  periodStart  DateTime     @map("period_start") @db.Date
+  periodEnd    DateTime     @map("period_end") @db.Date
+  amount       Decimal      @default(0) @db.Decimal(14, 2)
+  consumed     Decimal      @default(0) @db.Decimal(14, 2)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy    String?      @map("created_by") @db.Uuid
+  updatedBy    String?      @map("updated_by") @db.Uuid
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz()
+  deletedBy    String?      @map("deleted_by") @db.Uuid
+
+  costCenter   CostCenter?            @relation(fields: [costCenterId], references: [id])
+  company      Company                @relation(fields: [companyId], references: [id])
+  transactions FinancialTransaction[]
+
+  /// NOTE: unique (company_id, cost_center_id, period_start) WHERE deleted_at IS NULL — raw SQL
+  @@index([companyId])
+  @@index([costCenterId])
+  @@map("budgets")
+  @@schema("finance")
+}
+
+model FinancialTransaction {
+  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String                   @map("company_id") @db.Uuid
+  costCenterId       String?                  @map("cost_center_id") @db.Uuid
+  budgetId           String?                  @map("budget_id") @db.Uuid
+  type               FinanceTransactionType
+  status             FinanceTransactionStatus @default(draft)
+  category           String?                  @db.VarChar(80)
+  amount             Decimal                  @db.Decimal(14, 2)
+  currency           String                   @default("THB") @db.VarChar(8)
+  transactionDate    DateTime                 @map("transaction_date") @db.Date
+  description        String?
+  counterparty       String?                  @db.VarChar(200)
+  workflowInstanceId String?                  @map("workflow_instance_id") @db.Uuid
+  ledgerEntryId      String?                  @map("ledger_entry_id") @db.Uuid
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?                  @map("created_by") @db.Uuid
+  updatedBy          String?                  @map("updated_by") @db.Uuid
+  deletedAt          DateTime?                @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?                  @map("deleted_by") @db.Uuid
+
+  costCenter CostCenter? @relation(fields: [costCenterId], references: [id])
+  budget     Budget?     @relation(fields: [budgetId], references: [id])
+  company    Company     @relation(fields: [companyId], references: [id])
+
+  /// NOTE: CHECK amount>0 — raw SQL
+  @@index([companyId, transactionDate])
+  @@index([costCenterId])
+  @@index([type, status])
+  @@index([budgetId])
+  @@map("financial_transactions")
+  @@schema("finance")
+}
+
+// ============================================================================
+// PERFORMANCE MODULE EXTENSIONS (20260101000400_performance_extensions)
+// ============================================================================
+
+enum PerformanceGrade {
+  A
+  B
+  C
+  D
+  F
+
+  @@map("performance_grade")
+  @@schema("performance")
+}
+
+enum PromotionReadiness {
+  ready
+  ready_with_conditions
+  not_ready
+  needs_review
+
+  @@map("promotion_readiness")
+  @@schema("performance")
+}
+
+enum SalaryReviewAction {
+  increase
+  maintain
+  decrease
+  freeze
+  probation_extension
+
+  @@map("salary_review_action")
+  @@schema("performance")
+}
+
+enum ProbationOutcome {
+  pending
+  passed
+  extended
+  failed
+
+  @@map("probation_outcome")
+  @@schema("performance")
+}
+
+model ProbationReview {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId         String            @map("employee_id") @db.Uuid
+  companyId          String            @map("company_id") @db.Uuid
+  evaluationId       String?           @map("evaluation_id") @db.Uuid
+  probationStartDate DateTime          @map("probation_start_date") @db.Date
+  probationEndDate   DateTime          @map("probation_end_date") @db.Date
+  outcome            ProbationOutcome  @default(pending)
+  extendedUntil      DateTime?         @map("extended_until") @db.Date
+  notes              String?
+  reviewedBy         String?           @map("reviewed_by") @db.Uuid
+  reviewedAt         DateTime?         @map("reviewed_at") @db.Timestamptz()
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy          String?           @map("created_by") @db.Uuid
+  updatedBy          String?           @map("updated_by") @db.Uuid
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz()
+  deletedBy          String?           @map("deleted_by") @db.Uuid
+
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  evaluation Evaluation? @relation(fields: [evaluationId], references: [id])
+
+  @@index([employeeId])
+  @@index([companyId, outcome])
+  @@map("probation_reviews")
+  @@schema("performance")
+}
+
+// ============================================================================
+// RECRUITMENT MODULE EXTENSIONS (20260101000500_recruitment_extensions)
+// ============================================================================
+
+enum OfferStatus {
+  draft
+  sent
+  accepted
+  declined
+  expired
+  withdrawn
+
+  @@map("offer_status")
+  @@schema("recruitment")
+}
+
+enum InterviewOutcome {
+  scheduled
+  completed
+  passed
+  failed
+  no_show
+  cancelled
+
+  @@map("interview_outcome")
+  @@schema("recruitment")
+}
+
+model Interview {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId    String          @map("candidate_id") @db.Uuid
+  companyId      String          @map("company_id") @db.Uuid
+  round          Int             @default(1) @db.SmallInt
+  scheduledAt    DateTime        @map("scheduled_at") @db.Timestamptz()
+  location       String?         @db.VarChar(200)
+  interviewerIds Json?           @map("interviewer_ids")
+  outcome        InterviewOutcome @default(scheduled)
+  score          Decimal?        @db.Decimal(4, 1)
+  notes          String?
+  completedAt    DateTime?       @map("completed_at") @db.Timestamptz()
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy      String?         @map("created_by") @db.Uuid
+  updatedBy      String?         @map("updated_by") @db.Uuid
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz()
+  deletedBy      String?         @map("deleted_by") @db.Uuid
+
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@index([companyId, scheduledAt])
+  @@map("interviews")
+  @@schema("recruitment")
+}
+
+model Offer {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId String      @map("candidate_id") @db.Uuid
+  companyId   String      @map("company_id") @db.Uuid
+  position    String      @db.VarChar(160)
+  baseSalary  Decimal     @map("base_salary") @db.Decimal(14, 2)
+  startDate   DateTime?   @map("start_date") @db.Date
+  expiryDate  DateTime    @map("expiry_date") @db.Date
+  status      OfferStatus @default(draft)
+  terms       Json?
+  sentAt      DateTime?   @map("sent_at") @db.Timestamptz()
+  respondedAt DateTime?   @map("responded_at") @db.Timestamptz()
+  notes       String?
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy   String?     @map("created_by") @db.Uuid
+  updatedBy   String?     @map("updated_by") @db.Uuid
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz()
+  deletedBy   String?     @map("deleted_by") @db.Uuid
+
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@index([companyId, status])
+  @@map("offers")
+  @@schema("recruitment")
+}
+
+// ============================================================================
+// REFERRAL MODULE EXTENSIONS (20260101000600_referral_extensions)
+// ============================================================================
+
+enum DuplicateCheckSignal {
+  phone
+  national_id
+  bank_account
+
+  @@map("duplicate_check_signal")
+  @@schema("referral")
+}
+
+model ReferralDuplicateCheck {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referralId   String                @map("referral_id") @db.Uuid
+  checkedAt    DateTime              @default(now()) @map("checked_at") @db.Timestamptz()
+  checkedBy    String?               @map("checked_by") @db.Uuid
+  signal       DuplicateCheckSignal
+  matchFound   Boolean               @map("match_found")
+  matchDetail  String?               @map("match_detail") @db.VarChar(255)
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz()
+
+  referral Referral @relation(fields: [referralId], references: [id])
+
+  /// NOTE: append-only (UPDATE/DELETE blocked by trigger)
+  @@index([referralId])
+  @@map("referral_duplicate_checks")
+  @@schema("referral")
+}
+
+enum MarketingDailyReportStatus {
+  draft
+  submitted
+  approved
+  rejected
+  voided
+
+  @@map("daily_report_status")
+  @@schema("marketing")
+}
+
+model MarketingDailyReport {
+  id               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String                     @map("company_id") @db.Uuid
+  employeeId       String                     @map("employee_id") @db.Uuid
+  reportDate       DateTime                   @map("report_date") @db.Date
+  contactedCount   Int                        @default(0) @map("contacted_count")
+  newMemberCount   Int                        @default(0) @map("new_member_count")
+  depositAmount    Decimal                    @default(0) @map("deposit_amount") @db.Decimal(14, 2)
+  startedWorkCount Int                        @default(0) @map("started_work_count")
+  note             String?
+  status           MarketingDailyReportStatus @default(draft)
+  submittedAt      DateTime?                  @map("submitted_at") @db.Timestamptz()
+  approvedBy       String?                    @map("approved_by") @db.Uuid
+  approvedAt       DateTime?                  @map("approved_at") @db.Timestamptz()
+  rejectedReason   String?                    @map("rejected_reason")
+  voidReason       String?                    @map("void_reason")
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy        String?                    @map("created_by") @db.Uuid
+  updatedBy        String?                    @map("updated_by") @db.Uuid
+  deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz()
+  deletedBy        String?                    @map("deleted_by") @db.Uuid
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  auditLogs MarketingReportAuditLog[]
+
+  /// NOTE: partial unique (company_id, employee_id, report_date) WHERE deleted_at IS NULL — raw SQL
+  @@index([employeeId, reportDate])
+  @@index([companyId, reportDate, status])
+  @@map("daily_reports")
+  @@schema("marketing")
+}
+
+enum MarketingReportAuditAction {
+  create
+  update
+  submit
+  approve
+  reject
+  void
+  lock
+  unlock
+
+  @@map("report_audit_action")
+  @@schema("marketing")
+}
+
+model MarketingReportAuditLog {
+  id        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String                     @map("company_id") @db.Uuid
+  reportId  String                     @map("report_id") @db.Uuid
+  actorId   String                     @map("actor_id") @db.Uuid
+  action    MarketingReportAuditAction
+  fieldName String?                    @map("field_name")
+  oldValue  String?                    @map("old_value")
+  newValue  String?                    @map("new_value")
+  reason    String?
+  createdAt DateTime                   @default(now()) @map("created_at") @db.Timestamptz()
+
+  company Company              @relation(fields: [companyId], references: [id])
+  report  MarketingDailyReport @relation(fields: [reportId], references: [id])
+  actor   User                 @relation("MarketingReportAuditActor", fields: [actorId], references: [id])
+
+  @@index([reportId, createdAt(sort: Desc)])
+  @@index([companyId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("report_audit_logs")
+  @@schema("marketing")
+}
+
+enum MarketingCycleLockStatus {
+  unlocked
+  locked
+
+  @@map("cycle_lock_status")
+  @@schema("marketing")
+}
+
+model MarketingCycleLock {
+  id           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String                   @map("company_id") @db.Uuid
+  earnCycleId  String                   @map("earn_cycle_id") @db.Uuid
+  status       MarketingCycleLockStatus @default(unlocked)
+  lockedBy     String?                  @map("locked_by") @db.Uuid
+  lockedAt     DateTime?                @map("locked_at") @db.Timestamptz()
+  lockReason   String?                  @map("lock_reason")
+  unlockedBy   String?                  @map("unlocked_by") @db.Uuid
+  unlockedAt   DateTime?                @map("unlocked_at") @db.Timestamptz()
+  unlockReason String?                  @map("unlock_reason")
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  company   Company      @relation(fields: [companyId], references: [id])
+  earnCycle PayrollCycle @relation(fields: [earnCycleId], references: [id])
+  locker    User?        @relation("MarketingCycleLocker", fields: [lockedBy], references: [id])
+  unlocker  User?        @relation("MarketingCycleUnlocker", fields: [unlockedBy], references: [id])
+
+  @@unique([companyId, earnCycleId])
+  @@index([companyId, status])
+  @@map("cycle_locks")
+  @@schema("marketing")
+}
+
+enum MarketingExpenseCategory {
+  advertising
+  deposit
+  worker_payment
+  worker_bonus
+  team_operation
+  shared_expense
+  line_oa
+  telesales
+  promotion
+  other
+
+  @@map("expense_category")
+  @@schema("marketing")
+}
+
+enum MarketingExpenseStatus {
+  draft
+  submitted
+  approved
+  rejected
+  voided
+
+  @@map("expense_status")
+  @@schema("marketing")
+}
+
+model MarketingExpense {
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId      String                   @map("company_id") @db.Uuid
+  teamId         String?                  @map("team_id") @db.Uuid
+  employeeId     String?                  @map("employee_id") @db.Uuid
+  earnCycleId    String                   @map("earn_cycle_id") @db.Uuid
+  expenseDate    DateTime                 @map("expense_date") @db.Date
+  category       MarketingExpenseCategory
+  subCategory    String?                  @map("sub_category")
+  amount         Decimal                  @db.Decimal(14, 2)
+  description    String?
+  attachmentUrl  String?                  @map("attachment_url")
+  status         MarketingExpenseStatus   @default(draft)
+  submittedBy    String?                  @map("submitted_by") @db.Uuid
+  approvedBy     String?                  @map("approved_by") @db.Uuid
+  approvedAt     DateTime?                @map("approved_at") @db.Timestamptz()
+  rejectedReason String?                  @map("rejected_reason")
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy      String?                  @map("created_by") @db.Uuid
+  updatedBy      String?                  @map("updated_by") @db.Uuid
+  deletedAt      DateTime?                @map("deleted_at") @db.Timestamptz()
+  deletedBy      String?                  @map("deleted_by") @db.Uuid
+
+  company   Company      @relation(fields: [companyId], references: [id])
+  team      MarketingTeam? @relation(fields: [teamId], references: [id])
+  employee  Employee?    @relation(fields: [employeeId], references: [id])
+  earnCycle PayrollCycle @relation(fields: [earnCycleId], references: [id])
+  submitter User?        @relation("MarketingExpenseSubmitter", fields: [submittedBy], references: [id])
+  approver  User?        @relation("MarketingExpenseApprover", fields: [approvedBy], references: [id])
+
+  @@index([companyId, earnCycleId, status])
+  @@index([companyId, teamId, earnCycleId, status])
+  @@index([employeeId, expenseDate])
+  @@index([companyId, expenseDate])
+  @@map("expenses")
+  @@schema("marketing")
+}
+
+enum MarketingTeamLevel {
+  root
+  sub_team
+
+  @@map("team_level")
+  @@schema("marketing")
+}
+
+enum MarketingTeamMemberRole {
+  big_leader
+  sub_leader
+  member
+
+  @@map("team_member_role")
+  @@schema("marketing")
+}
+
+model MarketingTeam {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId           String             @map("company_id") @db.Uuid
+  code                String             @db.VarChar(40)
+  name                String             @db.VarChar(120)
+  parentTeamId        String?            @map("parent_team_id") @db.Uuid
+  level               MarketingTeamLevel
+  bigLeaderEmployeeId String?            @map("big_leader_employee_id") @db.Uuid
+  subLeaderEmployeeId String?            @map("sub_leader_employee_id") @db.Uuid
+  isActive            Boolean            @default(true) @map("is_active")
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy           String?            @map("created_by") @db.Uuid
+  updatedBy           String?            @map("updated_by") @db.Uuid
+  deletedAt           DateTime?          @map("deleted_at") @db.Timestamptz()
+  deletedBy           String?            @map("deleted_by") @db.Uuid
+
+  company            Company                       @relation(fields: [companyId], references: [id])
+  parentTeam         MarketingTeam?                @relation("MarketingTeamHierarchy", fields: [parentTeamId], references: [id])
+  childTeams         MarketingTeam[]               @relation("MarketingTeamHierarchy")
+  bigLeader          Employee?                     @relation("MarketingTeamBigLeader", fields: [bigLeaderEmployeeId], references: [id])
+  subLeader          Employee?                     @relation("MarketingTeamSubLeader", fields: [subLeaderEmployeeId], references: [id])
+  members            MarketingTeamMember[]
+  expenses           MarketingExpense[]
+  commissionCycles   MarketingCommissionCycle[]
+  commissionCarries  MarketingCommissionCarryForward[]
+  finalizationCycles CommissionCycle[]
+  commissionDeclarationAssignments CommissionDeclarationAssignment[]
+
+  @@index([companyId])
+  @@index([parentTeamId])
+  @@map("teams")
+  @@schema("marketing")
+}
+
+model MarketingTeamMember {
+  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId     String                  @map("company_id") @db.Uuid
+  teamId        String                  @map("team_id") @db.Uuid
+  employeeId    String                  @map("employee_id") @db.Uuid
+  role          MarketingTeamMemberRole @default(member)
+  effectiveFrom DateTime                @map("effective_from") @db.Date
+  effectiveTo   DateTime?               @map("effective_to") @db.Date
+  isPrimary     Boolean                 @default(true) @map("is_primary")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy     String?                 @map("created_by") @db.Uuid
+  updatedBy     String?                 @map("updated_by") @db.Uuid
+  deletedAt     DateTime?               @map("deleted_at") @db.Timestamptz()
+  deletedBy     String?                 @map("deleted_by") @db.Uuid
+
+  company  Company       @relation(fields: [companyId], references: [id])
+  team     MarketingTeam @relation(fields: [teamId], references: [id])
+  employee Employee      @relation(fields: [employeeId], references: [id])
+
+  @@index([companyId, employeeId])
+  @@index([teamId])
+  @@index([employeeId, effectiveTo])
+  @@map("team_members")
+  @@schema("marketing")
+}

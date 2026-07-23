@@ -1,0 +1,81 @@
+# ============================================================================
+# WorkHQ — docker-compose.staging.yml
+# Staging environment: production-like settings with debug-friendly exposure.
+#
+# Usage:
+#   cp .env.staging.example .env
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
+# ============================================================================
+
+services:
+
+  migrate:
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-workhq}:${POSTGRES_PASSWORD:-workhq_staging_change_me}@postgres:5432/${POSTGRES_DB:-workhq}
+
+  postgres:
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-workhq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workhq_staging_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-workhq}
+
+  redis:
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-workhq_staging_redis}
+    ports:
+      - "6379:6379"
+
+  api:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-workhq}:${POSTGRES_PASSWORD:-workhq_staging_change_me}@postgres:5432/${POSTGRES_DB:-workhq}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-workhq_staging_redis}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (min 64 chars for staging)}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      LOG_LEVEL: ${LOG_LEVEL:-log}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    ports:
+      - "3000:3000"
+    deploy:
+      replicas: 1
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        VITE_API_BASE: /api/v1
+    container_name: workhq-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+  backup-cron:
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-workhq}:${POSTGRES_PASSWORD:-workhq_staging_change_me}@postgres:5432/${POSTGRES_DB:-workhq}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 3 * * *}
