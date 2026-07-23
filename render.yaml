@@ -1,9 +1,8 @@
 # WorkHQ — Render Blueprint
-# Deploy: Blueprints → Manual sync after push
-#
-# Free tier: max ~2 free Web Services per workspace.
-# If workhq-api fails while static web succeeds, pause unused services
-# (e.g. push-frontend / push-backend) then Manual sync again.
+# Free tier limits:
+#   - no preDeployCommand
+#   - static sites cannot set region
+#   - ~2 free Web Services per workspace (pause unused push-* if needed)
 
 services:
   - type: web
@@ -12,8 +11,7 @@ services:
     plan: free
     region: singapore
     buildCommand: cd backend && npm ci && npx prisma generate --schema=../prisma/schema.prisma && npm run build
-    preDeployCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma
-    startCommand: cd backend && node dist/main.js
+    startCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma && node dist/main.js
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_VERSION
@@ -50,7 +48,6 @@ services:
     name: workhq-web
     runtime: static
     plan: free
-    region: singapore
     buildCommand: cd web && npm ci && npm run build
     staticPublishPath: web/dist
     routes:
