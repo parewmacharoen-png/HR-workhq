@@ -14,7 +14,7 @@ services:
     name: workhq-api
     runtime: node
     plan: free
-    buildCommand: cd backend && npm ci && npx prisma generate --schema=../prisma/schema.prisma && npm run build
+    buildCommand: cd backend && NPM_CONFIG_PRODUCTION=false npm ci && npx prisma generate --schema=../prisma/schema.prisma && npm run build
     startCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma && node dist/main.js
     healthCheckPath: /api/v1/health
     envVars:
