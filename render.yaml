@@ -1,22 +1,25 @@
 # WorkHQ — Render Blueprint
-# Deploy: https://dashboard.render.com/blueprints → New → connect HR-workhq
+# Deploy: Blueprints → Manual sync after push
 #
-# Free-tier note: one always-on free web service. Web is a Static Site that
-# talks to the API URL (set WORKHQ_API_ORIGIN after first deploy).
+# Free tier: max ~2 free Web Services per workspace.
+# If workhq-api fails while static web succeeds, pause unused services
+# (e.g. push-frontend / push-backend) then Manual sync again.
 
 services:
   - type: web
     name: workhq-api
-    runtime: docker
+    runtime: node
     plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    region: singapore
+    buildCommand: cd backend && npm ci && npx prisma generate --schema=../prisma/schema.prisma && npm run build
+    preDeployCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma
+    startCommand: cd backend && node dist/main.js
     healthCheckPath: /api/v1/health
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: "3000"
       - key: DATABASE_URL
         fromDatabase:
           name: workhq-db
@@ -40,10 +43,14 @@ services:
         sync: false
       - key: WORKHQ_WEB_URL
         sync: false
+      - key: DOCUMENT_STORAGE_BASE_PATH
+        value: /tmp/workhq/documents
 
   - type: web
     name: workhq-web
     runtime: static
+    plan: free
+    region: singapore
     buildCommand: cd web && npm ci && npm run build
     staticPublishPath: web/dist
     routes:
@@ -51,17 +58,21 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       - key: VITE_API_BASE
         sync: false
 
   - type: keyvalue
     name: workhq-redis
     plan: free
+    region: singapore
     maxmemoryPolicy: allkeys-lru
     ipAllowList: []
 
 databases:
   - name: workhq-db
     plan: free
+    region: singapore
     databaseName: workhq
     user: workhq
