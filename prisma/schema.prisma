@@ -16,6 +16,11 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  // Migrations (prisma migrate deploy) use a direct, non-pooled connection.
+  // Session-scoped advisory locks used to coordinate concurrent migrations
+  // are unreliable over PgBouncer/Neon pooled connections and can get stuck
+  // held by an idle pooled backend, blocking every future migrate deploy.
+  directUrl  = env("DIRECT_URL")
   extensions = [pgcrypto, btree_gist, vector]
   schemas    = ["organization", "employee", "permission", "attendance", "leave", "workflow", "payroll", "commission", "finance", "performance", "recruitment", "referral", "marketing", "training", "assets", "knowledge", "ai", "reporting", "telegram", "system"]
 }

@@ -24,6 +24,12 @@ services:
         value: production
       - key: DATABASE_URL
         sync: false
+      # Direct (non-pooled) Neon connection — used only by `prisma migrate deploy`.
+      # Pooled/PgBouncer connections don't reliably release the session-scoped
+      # advisory lock migrate uses to coordinate concurrent migrations, which
+      # can leave it stuck and block every future deploy (see P1002 errors).
+      - key: DIRECT_URL
+        sync: false
       - key: REDIS_URL
         fromService:
           name: workhq-redis
