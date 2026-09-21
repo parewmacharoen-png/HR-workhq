@@ -41,6 +41,9 @@ export interface AttendanceRulesSetting {
   checkOutReminderMinutes: number;
   /** ATT-010 — minutes after shift end before check-out escalation */
   checkOutEscalationMinutes: number;
+  /** ATT-LOC — max distance (meters) from an employee's captured home baseline before a
+   * check-in/check-out is flagged as a location anomaly and alerted to owner/HR. */
+  homeLocationRadiusMeters: number;
 }
 
 /** System defaults — matches hardcoded values before HR-11B migration. */
@@ -68,6 +71,7 @@ export const DEFAULT_ATTENDANCE_RULES: AttendanceRulesSetting = {
   breakEscalationMinutes: 90,
   checkOutReminderMinutes: 30,
   checkOutEscalationMinutes: 120,
+  homeLocationRadiusMeters: 300,
 };
 
 export function mergeAttendanceRules(
@@ -107,6 +111,7 @@ export function validateAttendanceRules(rules: AttendanceRulesSetting): string[]
     ['breakEscalationMinutes', rules.breakEscalationMinutes],
     ['checkOutReminderMinutes', rules.checkOutReminderMinutes],
     ['checkOutEscalationMinutes', rules.checkOutEscalationMinutes],
+    ['homeLocationRadiusMeters', rules.homeLocationRadiusMeters],
   ] as const;
 
   for (const [field, value] of nonNegative) {
@@ -117,6 +122,10 @@ export function validateAttendanceRules(rules: AttendanceRulesSetting): string[]
 
   if (typeof rules.breakMinutes !== 'number' || rules.breakMinutes <= 0) {
     errors.push('breakMinutes must be greater than 0');
+  }
+
+  if (typeof rules.homeLocationRadiusMeters !== 'number' || rules.homeLocationRadiusMeters <= 0) {
+    errors.push('homeLocationRadiusMeters must be greater than 0');
   }
 
   if (rules.halfDayAbsenceThresholdHours > rules.fullDayAbsenceThresholdHours) {

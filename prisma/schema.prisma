@@ -1513,6 +1513,10 @@ model Employee {
   restoredAt         DateTime?              @map("restored_at") @db.Timestamptz()
   restoredBy         String?                @map("restored_by") @db.Uuid
   restoreReason      String?                @map("restore_reason") @db.VarChar(512)
+  /// ATT-LOC — WFH home baseline GPS, captured silently on the employee's first ever check-in.
+  homeLatitude           Decimal?           @map("home_latitude") @db.Decimal(9, 6)
+  homeLongitude          Decimal?           @map("home_longitude") @db.Decimal(9, 6)
+  homeLocationCapturedAt DateTime?          @map("home_location_captured_at") @db.Timestamptz()
   createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   createdBy          String?          @map("created_by") @db.Uuid
@@ -3313,6 +3317,15 @@ model AttendanceRecord {
   needsRecalculation   Boolean                @default(false) @map("needs_recalculation")
   status               AttendanceRecordStatus @default(incomplete)
   source        AttendanceRecordSource @default(telegram)
+  /// ATT-LOC — GPS captured at check-in/out and distance (meters) from the employee's home baseline.
+  checkInLatitude         Decimal?  @map("check_in_latitude") @db.Decimal(9, 6)
+  checkInLongitude        Decimal?  @map("check_in_longitude") @db.Decimal(9, 6)
+  checkInDistanceMeters   Decimal?  @map("check_in_distance_meters") @db.Decimal(10, 2)
+  checkInLocationAnomaly  Boolean   @default(false) @map("check_in_location_anomaly")
+  checkOutLatitude        Decimal?  @map("check_out_latitude") @db.Decimal(9, 6)
+  checkOutLongitude       Decimal?  @map("check_out_longitude") @db.Decimal(9, 6)
+  checkOutDistanceMeters  Decimal?  @map("check_out_distance_meters") @db.Decimal(10, 2)
+  checkOutLocationAnomaly Boolean   @default(false) @map("check_out_location_anomaly")
   createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt     DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   createdBy     String?                @map("created_by") @db.Uuid

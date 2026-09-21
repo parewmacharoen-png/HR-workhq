@@ -332,6 +332,8 @@ export class RequestIntegrationService implements OnModuleInit {
         return this.integrateShiftChange(actor, instance, values);
       case 'off_day_change':
         return this.integrateOffDayChange(actor, instance, values);
+      case 'home_location_reset':
+        return this.integrateHomeLocationReset(actor, instance, values);
       case 'document_request':
         return this.integrateDocumentRequest(actor, instance, values);
       case 'telegram_registration_review':
@@ -1226,6 +1228,39 @@ export class RequestIntegrationService implements OnModuleInit {
     throw new Error('ไม่พบข้อมูลวันหยุดที่สามารถสลับได้');
   }
 
+  /**
+   * ATT-LOC — approved "home location reset" request: employee genuinely moved house, so clear
+   * their captured GPS baseline. The next check-in/out silently re-captures a fresh baseline.
+   */
+  private async integrateHomeLocationReset(
+    actor: ActorContext,
+    instance: { id: string; requesterEmployeeId: string },
+    values: ValuesMap,
+  ): Promise<IntegrationResult> {
+    await this.prisma.employee.update({
+      where: { id: instance.requesterEmployeeId },
+      data: {
+        homeLatitude: null,
+        homeLongitude: null,
+        homeLocationCapturedAt: null,
+        updatedBy: actor.userId,
+      },
+    });
+
+    await this.audit.record(actor, {
+      entityType: 'Employee',
+      entityId: instance.requesterEmployeeId,
+      action: 'home_location_reset',
+      after: { requestInstanceId: instance.id, reason: parseString(values.reason) || null },
+    });
+
+    return {
+      entityType: 'Employee',
+      entityId: instance.requesterEmployeeId,
+      message: 'ล้างตำแหน่งบ้านเดิมแล้ว — จะบันทึกตำแหน่งใหม่จากการเช็กอินครั้งถัดไป',
+    };
+  }
+
   private parseOffDayIso(value: unknown, fieldName: string): string {
     const iso = parseString(value);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
@@ -1449,6 +1484,7 @@ export class RequestIntegrationService implements OnModuleInit {
     'shift_change',
     'advance_pay',
     'document_request',
+    'home_location_reset',
   ]);
 
   async processCancelledRequest(

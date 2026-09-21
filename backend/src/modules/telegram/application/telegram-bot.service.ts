@@ -280,7 +280,13 @@ const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
 
 interface TelegramUpdate {
   update_id: number;
-  message?: { message_id: number; from?: { id: number; username?: string }; chat: { id: number }; text?: string };
+  message?: {
+    message_id: number;
+    from?: { id: number; username?: string };
+    chat: { id: number };
+    text?: string;
+    location?: { latitude: number; longitude: number };
+  };
   callback_query?: { id: string; from: { id: number; username?: string }; data?: string; message?: { message_id: number; chat: { id: number } } };
 }
 
@@ -701,6 +707,37 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     let context = (session.context as SessionContext | null) ?? {};
 
     context = await this.ensureUserChatMenu(account, chatId, state, context);
+
+    if (
+      !update.callback_query
+      && (state === 'attendance:awaiting_checkin_location' || state === 'attendance:awaiting_checkout_location')
+    ) {
+      await this.logInbound(account.id, update);
+      const cancelText = update.message?.text?.trim();
+      if (cancelText === '/start' || cancelText === '/menu' || cancelText === '🏠 Home' || cancelText === '📋 เมนู' || cancelText === 'ยกเลิก') {
+        await this.saveSession(account.id, 'idle', {});
+        await this.showMainMenu(chatId, account.userId);
+        return;
+      }
+      const loc = update.message?.location;
+      if (loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
+        if (state === 'attendance:awaiting_checkin_location') {
+          const draft = (context.draft ?? {}) as Record<string, unknown>;
+          const workCategory = draft.workCategory === 'wfh' ? 'wfh' : 'office';
+          await this.saveSession(account.id, 'idle', {});
+          await this.performTelegramCheckIn(account, chatId, workCategory, undefined, loc.latitude, loc.longitude);
+        } else {
+          await this.saveSession(account.id, 'idle', {});
+          await this.performTelegramCheckOut(account, chatId, loc.latitude, loc.longitude, undefined);
+        }
+        return;
+      }
+      await this.repromptForLocation(
+        chatId,
+        state === 'attendance:awaiting_checkin_location' ? 'checkin' : 'checkout',
+      );
+      return;
+    }
 
     if (update.callback_query) {
       await this.logInbound(account.id, update);
@@ -2009,15 +2046,84 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** ATT-LOC — reply-keyboard button requesting the employee's live GPS before check-in/out. */
+  private buildLocationRequestKeyboard(): unknown {
+    return {
+      keyboard: [[{ text: '📍 แชร์ตำแหน่งของฉัน', request_location: true }]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    };
+  }
+
+  private async requestCheckInLocation(
+    chatId: number,
+    account: { id: string; userId: string },
+    workCategory: 'office' | 'wfh',
+  ): Promise<void> {
+    await this.gateway.sendMessage({
+      chatId,
+      text: [
+        '📍 <b>ยืนยันตำแหน่งก่อนเช็กอิน</b>',
+        '',
+        'กรุณากดปุ่ม "แชร์ตำแหน่งของฉัน" ด้านล่างเพื่อเช็กอิน',
+        '(จำเป็นทุกครั้ง — ใช้ตรวจสอบตำแหน่งการทำงาน)',
+      ].join('\n'),
+      parseMode: 'HTML',
+      replyMarkup: this.buildLocationRequestKeyboard(),
+    });
+    await this.saveSession(account.id, 'attendance:awaiting_checkin_location', {
+      draft: { parentMenu: 'home', workCategory },
+    });
+  }
+
+  private async requestCheckOutLocation(
+    chatId: number,
+    account: { id: string; userId: string },
+  ): Promise<void> {
+    await this.gateway.sendMessage({
+      chatId,
+      text: [
+        '📍 <b>ยืนยันตำแหน่งก่อนเช็กเอาต์</b>',
+        '',
+        'กรุณากดปุ่ม "แชร์ตำแหน่งของฉัน" ด้านล่างเพื่อเช็กเอาต์',
+        '(จำเป็นทุกครั้ง — ใช้ตรวจสอบตำแหน่งการทำงาน)',
+      ].join('\n'),
+      parseMode: 'HTML',
+      replyMarkup: this.buildLocationRequestKeyboard(),
+    });
+    await this.saveSession(account.id, 'attendance:awaiting_checkout_location', {
+      draft: { parentMenu: 'home' },
+    });
+  }
+
+  /** ATT-LOC — re-prompt when the employee sent text instead of tapping the location button. */
+  private async repromptForLocation(
+    chatId: number,
+    kind: 'checkin' | 'checkout',
+  ): Promise<void> {
+    const label = kind === 'checkin' ? 'เช็กอิน' : 'เช็กเอาต์';
+    await this.gateway.sendMessage({
+      chatId,
+      text: `📍 กรุณากดปุ่ม "แชร์ตำแหน่งของฉัน" เพื่อ${label} — ไม่สามารถ${label}โดยไม่แชร์ตำแหน่งได้`,
+      replyMarkup: this.buildLocationRequestKeyboard(),
+    });
+  }
+
   private async performTelegramCheckIn(
     account: { id: string; userId: string },
     chatId: number,
     workCategory: 'office' | 'wfh',
     sourceMessage?: { message_id: number; chat: { id: number } },
+    latitude?: number,
+    longitude?: number,
   ): Promise<void> {
     const emp = await this.getEmployeeForUser(account.userId);
     if (!emp) {
       await this.gateway.sendMessage({ chatId, text: '❌ ไม่พบข้อมูลพนักงาน' });
+      return;
+    }
+    if (latitude === undefined || longitude === undefined) {
+      await this.requestCheckInLocation(chatId, account, workCategory);
       return;
     }
 
@@ -2026,7 +2132,9 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       const res = await this.attendance.checkIn(
         { userId: account.userId, impersonatorUserId: null, companyId: emp.companyId },
         emp.employeeId,
-        { companyId: emp.companyId, workCategory },
+        {
+          companyId: emp.companyId, workCategory, latitude, longitude,
+        },
       );
       const checkInLabel = this.formatBangkokDateTime(res.checkInAt);
       const shiftRange = this.formatShiftRange(res.shiftStartAt, res.shiftEndAt);
@@ -2058,6 +2166,48 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     }
     await this.saveSession(account.id, 'idle', {});
     await this.showMainMenu(chatId, account.userId);
+  }
+
+  private async performTelegramCheckOut(
+    account: { id: string; userId: string },
+    chatId: number,
+    latitude: number,
+    longitude: number,
+    sourceMessage?: { message_id: number; chat: { id: number } },
+  ): Promise<void> {
+    const emp = await this.getEmployeeForUser(account.userId);
+    if (!emp) {
+      await this.gateway.sendMessage({ chatId, text: '❌ ไม่พบข้อมูลพนักงาน' });
+      return;
+    }
+    try {
+      const res = await this.attendance.checkOut(
+        { userId: account.userId, impersonatorUserId: null, companyId: emp.companyId },
+        emp.employeeId,
+        { companyId: emp.companyId, latitude, longitude },
+      );
+      const checkoutLabel = this.formatBangkokDateTime(res.checkOutAt);
+      const msg = [
+        '🔴 <b>เลิกงานแล้ว</b>',
+        `เวลา ${checkoutLabel}`,
+        `⏱ ทำงาน: ${Math.floor(res.workedMinutes / 60)} ชม. ${res.workedMinutes % 60} นาที`,
+        '',
+        'วันนี้มี OT หรือไม่?',
+      ].join('\n');
+      await this.sendCallbackResultMessage(chatId, sourceMessage, msg, {
+        inline_keyboard: [
+          [{ text: 'ไม่มี OT', callback_data: 'checkout:ot_no' }],
+          [{ text: 'มี OT', callback_data: 'checkout:ot_yes' }],
+        ],
+      });
+      await this.saveSession(account.id, 'checkout:ot_prompt', {
+        draft: { attendanceRecordId: res.id, companyId: emp.companyId },
+      });
+    } catch (err: unknown) {
+      await this.replaceCallbackMessage(chatId, sourceMessage, `❌ ${(err as Error).message}`);
+      await this.saveSession(account.id, 'idle', {});
+      await this.showMainMenu(chatId, account.userId);
+    }
   }
 
   private async replaceCallbackMessage(
@@ -2802,34 +2952,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
           await this.replaceCallbackMessage(chatId, sourceMessage, '❌ ไม่พบข้อมูลพนักงาน');
           return;
         }
-        try {
-          const res = await this.attendance.checkOut(
-            { userId: account.userId, impersonatorUserId: null, companyId: emp.companyId },
-            emp.employeeId,
-            { companyId: emp.companyId },
-          );
-          const checkoutLabel = this.formatBangkokDateTime(res.checkOutAt);
-          const msg = [
-            '🔴 <b>เลิกงานแล้ว</b>',
-            `เวลา ${checkoutLabel}`,
-            `⏱ ทำงาน: ${Math.floor(res.workedMinutes / 60)} ชม. ${res.workedMinutes % 60} นาที`,
-            '',
-            'วันนี้มี OT หรือไม่?',
-          ].join('\n');
-          await this.sendCallbackResultMessage(chatId, sourceMessage, msg, {
-            inline_keyboard: [
-              [{ text: 'ไม่มี OT', callback_data: 'checkout:ot_no' }],
-              [{ text: 'มี OT', callback_data: 'checkout:ot_yes' }],
-            ],
-          });
-          await this.saveSession(account.id, 'checkout:ot_prompt', {
-            draft: { attendanceRecordId: res.id, companyId: emp.companyId },
-          });
-        } catch (err: unknown) {
-          await this.replaceCallbackMessage(chatId, sourceMessage, `❌ ${(err as Error).message}`);
-          await this.saveSession(account.id, 'idle', {});
-          await this.showMainMenu(chatId, account.userId);
-        }
+        await this.requestCheckOutLocation(chatId, account);
         break;
       }
 

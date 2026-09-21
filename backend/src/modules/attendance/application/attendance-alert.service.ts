@@ -136,6 +136,52 @@ export class AttendanceAlertService {
     });
   }
 
+  /** ATT-LOC — alert owner/HR that a check-in/out landed far from the employee's WFH home baseline. */
+  async sendLocationAnomalyAlert(input: {
+    employeeId: string;
+    companyId: string;
+    event: 'check_in' | 'check_out';
+    distanceMeters: number;
+    thresholdMeters: number;
+    latitude: number;
+    longitude: number;
+  }): Promise<void> {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: input.employeeId, deletedAt: null },
+      select: { firstName: true, lastName: true },
+    });
+    const company = await this.prisma.company.findFirst({
+      where: { id: input.companyId, deletedAt: null },
+      select: { name: true },
+    });
+    const teamName = await this.teamName(input.employeeId);
+    const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : '—';
+
+    await this.notifier.notifyLocationAnomaly({
+      employeeId: input.employeeId,
+      companyId: input.companyId,
+      employeeName,
+      teamName,
+      companyName: company?.name ?? '—',
+      event: input.event,
+      distanceMeters: input.distanceMeters,
+      thresholdMeters: input.thresholdMeters,
+      latitude: input.latitude,
+      longitude: input.longitude,
+    });
+
+    await this.audit.record(SYSTEM_ACTOR, {
+      entityType: 'AttendanceRecord',
+      entityId: input.employeeId,
+      action: 'attendance_location_anomaly',
+      after: {
+        event: input.event,
+        distanceMeters: Math.round(input.distanceMeters),
+        thresholdMeters: input.thresholdMeters,
+      },
+    });
+  }
+
   /** ATT-010b — resolve alerts when employee completes the action. */
   async resolveAlertsForEmployee(
     employeeId: string,

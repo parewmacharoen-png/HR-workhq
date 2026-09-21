@@ -9,6 +9,8 @@ export type TelegramState =
   // attendance
   | 'attendance:confirming_checkin'
   | 'attendance:confirming_checkout'
+  | 'attendance:awaiting_checkin_location'
+  | 'attendance:awaiting_checkout_location'
   | 'attendance:break_menu'
   | 'attendance:correction_field'
   | 'attendance:correction_time'

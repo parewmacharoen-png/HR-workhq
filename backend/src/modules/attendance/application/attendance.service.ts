@@ -54,6 +54,7 @@ import {
   parseWorkDateIso,
 } from '../../../shared/time/time-correction-field.util';
 import { computeBreakDeduction } from '../../../shared/attendance/break-deduction.util';
+import { haversineDistanceMeters } from '../../../shared/geo/haversine.util';
 import { ShiftAssignmentService } from './shift-assignment.service';
 import { EmployeeHourlyRateService } from './employee-hourly-rate.service';
 import {
@@ -168,7 +169,9 @@ export class AttendanceService implements OnModuleInit {
     const workDate = this.today();
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, deletedAt: null },
-      select: { workCategory: true },
+      select: {
+        workCategory: true, homeLatitude: true, homeLongitude: true, homeLocationCapturedAt: true,
+      },
     });
     const profileCategory = employee?.workCategory === 'wfh' ? 'wfh' as const : 'office' as const;
     const dayWorkCategory = dto.workCategory === 'wfh' || dto.workCategory === 'office'
@@ -238,9 +241,96 @@ export class AttendanceService implements OnModuleInit {
       entityType: 'AttendanceRecord', entityId: record.id, action: 'check_in',
       after: record.toPersistence(),
     });
+    await this.applyLocationCheck({
+      employeeId,
+      companyId: dto.companyId,
+      attendanceRecordId: record.id,
+      event: 'check_in',
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      homeLatitude: employee?.homeLatitude ?? null,
+      homeLongitude: employee?.homeLongitude ?? null,
+    });
     await this.alertService.resolveAlertsForEmployee(employeeId, workDate, 'check_in');
     await this.absenceAutoWaive.syncForWorkDay(employeeId, dto.companyId, workDate);
     return this.toResponse(record, shiftWindow.shift.name);
+  }
+
+  /**
+   * ATT-LOC — WFH anti-fraud location check.
+   * On an employee's very first check-in/out ever, silently captures the submitted GPS as their
+   * home baseline. On every later check-in/out, computes the Haversine distance from that
+   * baseline and — if it exceeds the per-company configured radius — flags the event as a
+   * location anomaly and alerts owner/HR via the existing Telegram attendance alert pipeline.
+   */
+  private async applyLocationCheck(input: {
+    employeeId: string;
+    companyId: string;
+    attendanceRecordId: string;
+    event: 'check_in' | 'check_out';
+    latitude: number;
+    longitude: number;
+    homeLatitude: unknown;
+    homeLongitude: unknown;
+  }): Promise<void> {
+    const homeLat = input.homeLatitude !== null && input.homeLatitude !== undefined
+      ? Number(input.homeLatitude) : null;
+    const homeLng = input.homeLongitude !== null && input.homeLongitude !== undefined
+      ? Number(input.homeLongitude) : null;
+    const isCheckIn = input.event === 'check_in';
+
+    if (homeLat === null || homeLng === null) {
+      // No baseline yet — silently capture this event's GPS as the employee's home location.
+      await this.prisma.employee.update({
+        where: { id: input.employeeId },
+        data: {
+          homeLatitude: input.latitude,
+          homeLongitude: input.longitude,
+          homeLocationCapturedAt: this.time.now(),
+        },
+      });
+      await this.prisma.attendanceRecord.update({
+        where: { id: input.attendanceRecordId },
+        data: isCheckIn
+          ? { checkInLatitude: input.latitude, checkInLongitude: input.longitude }
+          : { checkOutLatitude: input.latitude, checkOutLongitude: input.longitude },
+      });
+      return;
+    }
+
+    const distanceMeters = haversineDistanceMeters(input.latitude, input.longitude, homeLat, homeLng);
+    const rules = await this.attendanceSettings.getRules(input.companyId);
+    const thresholdMeters = rules.homeLocationRadiusMeters;
+    const anomaly = distanceMeters > thresholdMeters;
+
+    await this.prisma.attendanceRecord.update({
+      where: { id: input.attendanceRecordId },
+      data: isCheckIn
+        ? {
+          checkInLatitude: input.latitude,
+          checkInLongitude: input.longitude,
+          checkInDistanceMeters: distanceMeters,
+          checkInLocationAnomaly: anomaly,
+        }
+        : {
+          checkOutLatitude: input.latitude,
+          checkOutLongitude: input.longitude,
+          checkOutDistanceMeters: distanceMeters,
+          checkOutLocationAnomaly: anomaly,
+        },
+    });
+
+    if (anomaly) {
+      await this.alertService.sendLocationAnomalyAlert({
+        employeeId: input.employeeId,
+        companyId: input.companyId,
+        event: input.event,
+        distanceMeters,
+        thresholdMeters,
+        latitude: input.latitude,
+        longitude: input.longitude,
+      });
+    }
   }
 
   async checkOut(actor: ActorContext, employeeId: string, dto: CheckOutDto): Promise<CheckOutResult> {
@@ -262,6 +352,20 @@ export class AttendanceService implements OnModuleInit {
     await this.audit.record(actor, {
       entityType: 'AttendanceRecord', entityId: record.id, action: 'check_out',
       after: record.toPersistence(),
+    });
+    const employeeHome = await this.prisma.employee.findFirst({
+      where: { id: employeeId, deletedAt: null },
+      select: { homeLatitude: true, homeLongitude: true },
+    });
+    await this.applyLocationCheck({
+      employeeId,
+      companyId: dto.companyId,
+      attendanceRecordId: record.id,
+      event: 'check_out',
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      homeLatitude: employeeHome?.homeLatitude ?? null,
+      homeLongitude: employeeHome?.homeLongitude ?? null,
     });
     await this.alertService.resolveAlertsForEmployee(employeeId, workDate, 'check_out');
     await this.absenceAutoWaive.syncForWorkDay(employeeId, dto.companyId, workDate);

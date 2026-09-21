@@ -22,6 +22,7 @@ export const DEFAULT_REQUEST_TYPE_SEEDS: RequestTypeSeed[] = [
   { key: 'time_correction', nameTh: 'ขอแก้ไขเวลาเข้างาน', nameEn: 'Time correction', description: 'แก้ไขเวลาเช็กอิน/เช็กเอาท์', icon: '🕒', category: 'attendance', telegramMenuOrder: 5, telegramMenuIcon: '🕒' },
   { key: 'shift_change', nameTh: 'ขอเปลี่ยนกะ', nameEn: 'Shift change', description: 'คำร้องขอเปลี่ยนกะ', icon: '🔁', category: 'shift', telegramMenuOrder: 6, telegramMenuIcon: '🔁' },
   { key: 'off_day_change', nameTh: 'ขอเปลี่ยนวันหยุด', nameEn: 'Off-day change', description: 'คำร้องขอเปลี่ยนวันหยุด', icon: '🗓', category: 'leave', telegramMenuOrder: 7, telegramMenuIcon: '🗓' },
+  { key: 'home_location_reset', nameTh: 'ขอปรับตำแหน่งบ้าน (WFH)', nameEn: 'Home location reset', description: 'คำร้องขอปรับตำแหน่ง GPS บ้านใหม่ (กรณีย้ายที่อยู่)', icon: '🏠', category: 'attendance', telegramMenuOrder: 10, telegramMenuIcon: '🏠' },
   { key: 'document_request', nameTh: 'ขอเอกสาร', nameEn: 'Document request', description: 'ขอเอกสารราชการ/HR', icon: '📄', category: 'document', telegramMenuOrder: 8, telegramMenuIcon: '📄' },
   { key: 'generic_request', nameTh: 'คำร้องทั่วไป', nameEn: 'Generic request', description: 'คำร้องทั่วไป', icon: '📝', category: 'general', telegramMenuOrder: 9, telegramMenuIcon: '📝' },
   { key: 'telegram_registration_review', nameTh: 'รับพนักงานใหม่', nameEn: 'Employee onboarding (legacy)', description: 'คำขอรับพนักงานใหม่ (legacy key)', icon: '📱', category: 'general', telegramMenuOrder: 99, telegramMenuIcon: '📱' },
@@ -215,6 +216,15 @@ const FORM_DEFS: Record<string, FieldDef[]> = {
     { key: 'requestedOffDay', labelTh: 'วันหยุดที่ต้องการ', fieldType: 'quick_date', required: true },
     { key: 'reason', labelTh: 'เหตุผล', fieldType: 'textarea', required: true },
   ],
+  home_location_reset: [
+    {
+      key: 'reason',
+      labelTh: 'เหตุผล (เช่น ย้ายที่อยู่ใหม่)',
+      fieldType: 'textarea',
+      required: true,
+      helpText: 'เมื่ออนุมัติแล้ว ระบบจะล้างตำแหน่งบ้านเดิม และจะบันทึกตำแหน่งใหม่จากการเช็กอินครั้งถัดไปโดยอัตโนมัติ',
+    },
+  ],
   document_request: [
     { key: 'documentType', labelTh: 'ประเภทเอกสาร', fieldType: 'document_type_picker', required: true, optionsJson: [
       { label: 'หนังสือรับรองเงินเดือน', value: 'salary_certificate' },
@@ -271,6 +281,7 @@ const FLOW_DEFS: Record<string, StepDef[]> = {
   time_correction: [{ stepOrder: 1, name: 'Big Leader', approverType: 'requester_big_leader' }],
   shift_change: [{ stepOrder: 1, name: 'Big Leader', approverType: 'requester_big_leader' }],
   off_day_change: [{ stepOrder: 1, name: 'Big Leader', approverType: 'requester_big_leader' }],
+  home_location_reset: [{ stepOrder: 1, name: 'Owner', approverType: 'owner' }],
   document_request: [{ stepOrder: 1, name: 'Secretary', approverType: 'secretary' }],
   generic_request: [
     { stepOrder: 1, name: 'Big Leader', approverType: 'requester_big_leader' },

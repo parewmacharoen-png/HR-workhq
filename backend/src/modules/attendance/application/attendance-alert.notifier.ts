@@ -6,6 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { TelegramGatewayService } from '../../telegram/infrastructure/telegram-gateway.service';
+import type { BusinessRoleCode } from '../../permission/domain/entities/business-role.types';
 
 export type AttendanceAlertKind =
   | 'checkin_pre_reminder'
@@ -15,7 +16,24 @@ export type AttendanceAlertKind =
   | 'missing_checkout'
   | 'missing_checkout_escalated'
   | 'missing_break_return'
-  | 'missing_break_return_escalated';
+  | 'missing_break_return_escalated'
+  | 'location_anomaly';
+
+/** ATT-LOC — owner/HR roles that receive location-mismatch alerts. */
+const LOCATION_ALERT_ROLES: BusinessRoleCode[] = ['owner', 'secretary'];
+
+export interface LocationAnomalyAlertInput {
+  employeeId: string;
+  companyId: string;
+  employeeName: string;
+  teamName: string | null;
+  companyName: string;
+  event: 'check_in' | 'check_out';
+  distanceMeters: number;
+  thresholdMeters: number;
+  latitude: number;
+  longitude: number;
+}
 
 @Injectable()
 export class AttendanceAlertNotifier {
@@ -25,6 +43,71 @@ export class AttendanceAlertNotifier {
     private readonly prisma: PrismaService,
     private readonly gateway: TelegramGatewayService,
   ) {}
+
+  /** ATT-LOC — alert owner/HR that a check-in/out was far from the employee's WFH home baseline. */
+  async notifyLocationAnomaly(input: LocationAnomalyAlertInput): Promise<void> {
+    const eventLabel = input.event === 'check_in' ? 'เช็กอิน' : 'เช็กเอาต์';
+    const mapsUrl = `https://maps.google.com/?q=${input.latitude},${input.longitude}`;
+    const text = [
+      '🚨 <b>ตรวจพบตำแหน่งผิดปกติ</b>',
+      '',
+      `<b>ชื่อ:</b> ${escapeHtml(input.employeeName)}`,
+      `<b>ทีม:</b> ${escapeHtml(input.teamName ?? '—')}`,
+      `<b>บริษัท:</b> ${escapeHtml(input.companyName)}`,
+      `<b>เหตุการณ์:</b> ${eventLabel}`,
+      `<b>ระยะห่างจากบ้าน:</b> ${Math.round(input.distanceMeters).toLocaleString('th-TH')} เมตร (เกิน ${input.thresholdMeters.toLocaleString('th-TH')} เมตร)`,
+      `<a href="${mapsUrl}">📍 ดูตำแหน่งบนแผนที่</a>`,
+    ].join('\n');
+    await this.sendToRoles(input.companyId, LOCATION_ALERT_ROLES, text);
+  }
+
+  private async sendToRoles(
+    companyId: string,
+    roles: BusinessRoleCode[],
+    text: string,
+  ): Promise<void> {
+    const assignments = await this.prisma.businessRoleAssignment.findMany({
+      where: { role: { in: roles }, isActive: true, deletedAt: null },
+      select: { userId: true, role: true },
+    });
+
+    const userIds = new Set<string>();
+    for (const assignment of assignments) {
+      const user = await this.prisma.user.findFirst({
+        where: { id: assignment.userId, deletedAt: null, isActive: true },
+        include: { scopeGrants: { where: { deletedAt: null } } },
+      });
+      if (!user) continue;
+      const matchesScope = assignment.role === 'owner'
+        || user.scopeGrants.some(
+          (grant) => grant.scopeType === 'all' || (grant.scopeType === 'company' && grant.companyId === companyId),
+        );
+      if (matchesScope) userIds.add(user.id);
+    }
+    if (!userIds.size) return;
+
+    const accounts = await this.prisma.telegramAccount.findMany({
+      where: { deletedAt: null, isActive: true, userId: { in: [...userIds] } },
+    });
+    const sentChatIds = new Set<number>();
+    for (const account of accounts) {
+      if (!account.chatId) continue;
+      const chatId = Number(account.chatId);
+      if (sentChatIds.has(chatId)) continue;
+      sentChatIds.add(chatId);
+      try {
+        await this.gateway.sendMessage({
+          chatId,
+          text,
+          parseMode: 'HTML',
+          telegramAccountId: account.id,
+          messageType: 'attendance_alert',
+        });
+      } catch (err) {
+        this.logger.warn(`Failed location anomaly alert to user ${account.userId}`, err);
+      }
+    }
+  }
 
   async notifyEmployee(
     employeeId: string,

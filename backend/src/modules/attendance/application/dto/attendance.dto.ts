@@ -2,7 +2,9 @@
 // modules/attendance/application/dto/attendance.dto.ts
 // ============================================================================
 
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import {
+  IsDateString, IsEnum, IsLatitude, IsLongitude, IsNumber, IsOptional, IsString, IsUUID, Min,
+} from 'class-validator';
 
 export class CheckInDto {
   @IsUUID() companyId!: string;
@@ -10,10 +12,16 @@ export class CheckInDto {
   @IsOptional() @IsNumber() @Min(0) hourlyRate?: number;
   /** Per-day work location (defaults to employee profile). */
   @IsOptional() @IsEnum(['office', 'wfh'] as const) workCategory?: 'office' | 'wfh';
+  /** ATT-LOC — GPS at time of check-in. Mandatory: used to capture/verify the WFH home baseline. */
+  @IsLatitude() latitude!: number;
+  @IsLongitude() longitude!: number;
 }
 
 export class CheckOutDto {
   @IsUUID() companyId!: string;
+  /** ATT-LOC — GPS at time of check-out. Mandatory: verified against the WFH home baseline. */
+  @IsLatitude() latitude!: number;
+  @IsLongitude() longitude!: number;
 }
 
 export class SubmitOvertimeDto {
