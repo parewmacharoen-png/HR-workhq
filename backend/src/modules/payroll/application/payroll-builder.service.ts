@@ -3,7 +3,7 @@
 // Cycle-level payroll orchestration — preview + idempotent build.
 // ============================================================================
 
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
@@ -84,7 +84,8 @@ import {
   PayrollBuilderResultResponse,
 } from './dto/payroll-builder.dto';
 import { AuditService } from '../../../shared/audit/audit.service';
-import { SharedPayrollService } from './shared-payroll.service';
+import type { SharedPayrollService } from './shared-payroll.service';
+import { SHARED_PAYROLL_SERVICE } from './shared-payroll.service.token';
 
 interface EligibleEmployee {
   id: string;
@@ -162,7 +163,7 @@ export class PayrollBuilderService {
     private readonly usedOffDays: UsedOffDaysService,
     private readonly audit: AuditService,
     private readonly manualItems: ManualPayrollItemService,
-    @Inject(forwardRef(() => SharedPayrollService))
+    @Inject(SHARED_PAYROLL_SERVICE)
     private readonly sharedPayroll: SharedPayrollService,
   ) {}
 

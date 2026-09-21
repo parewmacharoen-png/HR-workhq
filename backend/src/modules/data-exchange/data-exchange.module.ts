@@ -10,6 +10,7 @@ import {
   AiExportController,
 } from './interface/http/data-exchange.controller';
 import { ExportService } from './application/export.service';
+import { EXPORT_SERVICE } from './application/export.service.token';
 import { ImportService, ImportAccessService } from './application/import.service';
 import { ScheduledExportService } from './application/scheduled-export.service';
 import { ExportAccessService } from './application/export-access.service';
@@ -38,6 +39,7 @@ import { AiExportService } from './application/ai-export.service';
   ],
   providers: [
     ExportService,
+    { provide: EXPORT_SERVICE, useExisting: ExportService },
     ExportQueueService,
     ImportService,
     ImportAccessService,

@@ -16,6 +16,7 @@ import { PayrollPdfController } from './interface/http/payroll-pdf.controller';
 import { PayrollService } from './application/payroll.service';
 import { PayrollBuilderService } from './application/payroll-builder.service';
 import { SharedPayrollService } from './application/shared-payroll.service';
+import { SHARED_PAYROLL_SERVICE } from './application/shared-payroll.service.token';
 import { ManualCommissionService } from './application/manual-commission.service';
 import { UsedOffDaysService } from './application/used-off-days.service';
 import { LateDeductionAggregatorService } from './application/late-deduction-aggregator.service';
@@ -58,6 +59,7 @@ import {
     PayrollService,
     PayrollBuilderService,
     SharedPayrollService,
+    { provide: SHARED_PAYROLL_SERVICE, useExisting: SharedPayrollService },
     ManualCommissionService,
     UsedOffDaysService,
     LateDeductionAggregatorService,

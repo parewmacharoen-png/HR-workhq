@@ -2,7 +2,7 @@
 // modules/commission/application/admin-commission.service.ts
 // ============================================================================
 
-import { Inject, Injectable, Optional, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   ADMIN_COMMISSION_REPOSITORY,
   AdminCommissionRepository,
@@ -23,7 +23,8 @@ import { AuditService } from '../../../shared/audit/audit.service';
 import { ActorContext } from '../../../shared/kernel/actor-context';
 import { CompanyAccessService } from '../../../shared/kernel/company-access.service';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
-import { CommissionFinalizationService } from './commission-finalization.service';
+import type { CommissionFinalizationService } from './commission-finalization.service';
+import { COMMISSION_FINALIZATION_SERVICE } from './commission-finalization.service.token';
 
 @Injectable()
 export class AdminCommissionService {
@@ -34,7 +35,7 @@ export class AdminCommissionService {
     private readonly audit: AuditService,
     private readonly companyAccess: CompanyAccessService,
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => CommissionFinalizationService))
+    @Inject(COMMISSION_FINALIZATION_SERVICE)
     private readonly finalization: CommissionFinalizationService,
     @Optional() private readonly formulaResolver?: FormulaResolverService,
   ) {}

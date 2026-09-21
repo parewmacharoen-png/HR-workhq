@@ -2,10 +2,11 @@
 // EXPORT-004 — Async export queue
 // ============================================================================
 
-import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { RedisLockService } from '../../../common/monitoring/redis-lock.service';
-import { ExportService } from './export.service';
+import type { ExportService } from './export.service';
+import { EXPORT_SERVICE } from './export.service.token';
 import { ActorContext } from '../../../shared/kernel/actor-context';
 
 @Injectable()
@@ -15,7 +16,7 @@ export class ExportQueueService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => ExportService)) private readonly exports: ExportService,
+    @Inject(EXPORT_SERVICE) private readonly exports: ExportService,
     private readonly lock: RedisLockService,
   ) {}
 

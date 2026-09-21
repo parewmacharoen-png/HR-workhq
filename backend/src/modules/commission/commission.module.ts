@@ -15,6 +15,7 @@ import { MarketingCommissionQueryService } from './application/marketing-commiss
 import { AdminCommissionService } from './application/admin-commission.service';
 import { AdminCommissionQueryService } from './application/admin-commission-query.service';
 import { CommissionFinalizationService } from './application/commission-finalization.service';
+import { COMMISSION_FINALIZATION_SERVICE } from './application/commission-finalization.service.token';
 import { CommissionAdjustmentService } from './application/commission-adjustment.service';
 import { CommissionDeclarationService } from './application/commission-declaration.service';
 import {
@@ -65,6 +66,7 @@ import { EmployeeModule } from '../employee/employee.module';
     AdminCommissionService,
     AdminCommissionQueryService,
     CommissionFinalizationService,
+    { provide: COMMISSION_FINALIZATION_SERVICE, useExisting: CommissionFinalizationService },
     CommissionAdjustmentService,
     CommissionDeclarationService,
     CommissionDeclarationTelegramNotifier,

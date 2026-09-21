@@ -2,7 +2,7 @@
 // modules/commission/application/marketing-commission.service.ts
 // ============================================================================
 
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   MARKETING_COMMISSION_REPOSITORY,
   MarketingCommissionRepository,
@@ -23,7 +23,8 @@ import { ActorContext } from '../../../shared/kernel/actor-context';
 import { CompanyAccessService } from '../../../shared/kernel/company-access.service';
 import { MarketingExpenseService } from '../../marketing/application/marketing-expense.service';
 import { MarketingFinancialDto } from './dto/marketing-commission.dto';
-import { CommissionFinalizationService } from './commission-finalization.service';
+import type { CommissionFinalizationService } from './commission-finalization.service';
+import { COMMISSION_FINALIZATION_SERVICE } from './commission-finalization.service.token';
 import { RuleConfigService } from '../../settings/application/rule-config.service';
 
 @Injectable()
@@ -36,7 +37,7 @@ export class MarketingCommissionService {
     private readonly companyAccess: CompanyAccessService,
     private readonly marketingExpenses: MarketingExpenseService,
     private readonly ruleConfig: RuleConfigService,
-    @Inject(forwardRef(() => CommissionFinalizationService))
+    @Inject(COMMISSION_FINALIZATION_SERVICE)
     private readonly finalization: CommissionFinalizationService,
   ) {}
 
