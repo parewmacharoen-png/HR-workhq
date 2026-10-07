@@ -14,6 +14,8 @@ export interface EmployeeListItem {
   email?: string | null;
   teamName?: string | null;
   primaryTeamId?: string | null;
+  /** Companies this person currently works in (primary first). */
+  companies?: EmployeeListCompany[];
   department?: string | null;
   position?: string | null;
   employmentType?: string | null;
@@ -29,6 +31,33 @@ export interface EmployeeListItem {
   anniversaryYears?: number;
   probationStatus?: string;
   probationStatusCode?: string;
+}
+
+export interface EmployeeListCompany {
+  id: string;
+  code: string;
+  name: string;
+  isPrimary: boolean;
+}
+
+/**
+ * Merge per-company lists into one row per person. Someone who works in
+ * several companies comes back once per company; keep a single card and
+ * union their company badges (backend already sends primary first).
+ */
+export function mergeEmployeeLists(lists: EmployeeListItem[][]): EmployeeListItem[] {
+  const byId = new Map<string, EmployeeListItem>();
+  for (const item of lists.flat()) {
+    const existing = byId.get(item.id);
+    if (!existing) {
+      byId.set(item.id, { ...item, companies: [...(item.companies ?? [])] });
+      continue;
+    }
+    for (const c of item.companies ?? []) {
+      if (!existing.companies!.some((e) => e.id === c.id)) existing.companies!.push(c);
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.globalId.localeCompare(b.globalId));
 }
 
 export interface EmployeeListResponse {

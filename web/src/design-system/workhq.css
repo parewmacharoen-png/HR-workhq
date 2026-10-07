@@ -2451,6 +2451,27 @@ button.whq-att-day--clickable:hover {
 .whq-employee-name { font-size: 1.05rem; font-weight: 600; }
 .whq-employee-nickname { font-weight: 500; color: var(--whq-text-muted); font-size: 0.95em; }
 .whq-employee-role { font-size: 0.85rem; color: var(--whq-text-muted); }
+.whq-company-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.whq-company-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--whq-radius-full);
+  border: 1px solid var(--whq-border);
+  background: var(--whq-bg-subtle);
+  color: var(--whq-text-secondary);
+}
+.whq-company-chip--primary {
+  border-color: transparent;
+  background: var(--whq-primary-subtle);
+  color: var(--whq-primary-text);
+}
 .whq-employee-meta {
   display: flex;
   flex-direction: column;

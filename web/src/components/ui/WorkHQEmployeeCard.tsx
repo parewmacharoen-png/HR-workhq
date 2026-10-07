@@ -35,6 +35,19 @@ export function WorkHQEmployeeCard({ employee }: WorkHQEmployeeCardProps) {
           </div>
         </div>
       </div>
+      {employee.companies && employee.companies.length > 0 && (
+        <div className="whq-company-chips" aria-label="บริษัท">
+          {employee.companies.map((c) => (
+            <span
+              key={c.id}
+              className={`whq-company-chip${c.isPrimary ? ' whq-company-chip--primary' : ''}`}
+              title={c.isPrimary ? `${c.name} (บริษัทหลัก)` : c.name}
+            >
+              {c.code}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="whq-employee-role">
         {employee.teamName && <span>{employee.teamName}</span>}
         {employee.teamName && role ? ' · ' : null}

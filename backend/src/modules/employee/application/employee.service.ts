@@ -470,11 +470,14 @@ export class EmployeeService {
         },
       },
       include: {
+        // All active assignments: the one for `companyId` drives team info,
+        // the full set becomes the per-person company badges.
         assignments: {
-          where: { companyId, effectiveTo: null, deletedAt: null },
-          take: 1,
+          where: { effectiveTo: null, deletedAt: null },
+          orderBy: [{ isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
           include: {
             team: { select: { name: true } },
+            company: { select: { id: true, code: true, name: true } },
           },
         },
         users: {
@@ -494,8 +497,24 @@ export class EmployeeService {
       orderBy: { globalId: 'asc' },
     });
 
+    const visibleCompanyIds = await this.visibleCompanyIds(
+      actor,
+      rows.flatMap((r) => r.assignments.map((a) => a.companyId)),
+    );
+
     const items: EmployeeListItem[] = rows.map((row) => {
       const tenure = this.employeeEvents.buildTenureInfo(row.hireDate);
+      const here = row.assignments.find((a) => a.companyId === companyId);
+      const companies = new Map<string, EmployeeListItem['companies'][number]>();
+      for (const a of row.assignments) {
+        if (companies.has(a.companyId) || !visibleCompanyIds.has(a.companyId)) continue;
+        companies.set(a.companyId, {
+          id: a.company.id,
+          code: a.company.code,
+          name: a.company.name,
+          isPrimary: a.isPrimaryCompany,
+        });
+      }
       return {
         id: row.id,
         globalId: row.globalId,
@@ -519,15 +538,26 @@ export class EmployeeService {
         tenureDays: tenure.tenureDays,
         tenureDisplay: tenure.tenureDisplay,
         tenureText: tenure.tenureDisplay,
-        primaryTeamId: row.assignments[0]?.teamId ?? null,
-        teamName: row.assignments[0]?.team?.name ?? null,
+        primaryTeamId: here?.teamId ?? null,
+        teamName: here?.team?.name ?? null,
         telegramLinked: (row.users[0]?.telegramAccounts?.length ?? 0) > 0,
         userId: row.users[0]?.id ?? null,
         username: row.users[0]?.username ?? null,
+        companies: [...companies.values()],
       };
     });
 
     return { items, total: items.length };
+  }
+
+  /** Which of these companies the actor may see (all of them for scope:all users). */
+  private async visibleCompanyIds(actor: ActorContext, companyIds: string[]): Promise<Set<string>> {
+    const unique = [...new Set(companyIds)];
+    if (await this.companyAccess.hasAllScope(actor.userId)) return new Set(unique);
+    const allowed = await Promise.all(
+      unique.map(async (id) => ((await this.companyAccess.hasCompanyScope(actor.userId, id)) ? id : null)),
+    );
+    return new Set(allowed.filter((id): id is string => id !== null));
   }
 
   async getEmployee(actor: ActorContext, id: string): Promise<EmployeeResponse> {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchEmployeeList, type EmployeeListItem } from '../../api/employees';
+import { fetchEmployeeList, mergeEmployeeLists, type EmployeeListItem } from '../../api/employees';
 import { ApiError } from '../../api/client';
 import { isAllCompanies } from '../../constants/company';
 import { useAuth } from '../../context/AuthContext';
@@ -65,7 +65,7 @@ export default function EmployeesPage() {
               : { workforceOnly: true }),
           }).catch(() => ({ items: [], total: 0 }))),
         );
-        const items = results.flatMap((r) => r.items);
+        const items = mergeEmployeeLists(results.map((r) => r.items));
         setRows(items);
         setTotal(items.length);
       } else {

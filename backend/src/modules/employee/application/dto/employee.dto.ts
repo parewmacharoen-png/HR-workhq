@@ -85,6 +85,15 @@ export interface EmployeeListItem extends EmployeeResponse {
   teamName?: string | null;
   userId: string | null;
   username: string | null;
+  /** Every company this person currently works in (primary first), limited to companies the viewer can see. */
+  companies: EmployeeListCompany[];
+}
+
+export interface EmployeeListCompany {
+  id: string;
+  code: string;
+  name: string;
+  isPrimary: boolean;
 }
 
 export interface EmployeeListResponse {
