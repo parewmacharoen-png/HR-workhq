@@ -2244,6 +2244,20 @@ button.whq-att-day--clickable:hover {
   border: 1px solid var(--whq-border);
 }
 
+.whq-company-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  min-height: 2rem;
+}
+.whq-company-row-remove {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--whq-danger-text);
+}
+
 .whq-employee-metric-chip--skeleton {
   min-height: 4.5rem;
   pointer-events: none;
@@ -2964,8 +2978,11 @@ button.whq-att-day--clickable:hover {
   cursor: pointer;
 }
 
+.whq-form-row--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
 @media (max-width: 640px) {
-  .whq-form-row { grid-template-columns: 1fr; }
+  .whq-form-row,
+  .whq-form-row--3 { grid-template-columns: 1fr; }
 }
 
 .whq-muted { color: var(--whq-text-muted); }

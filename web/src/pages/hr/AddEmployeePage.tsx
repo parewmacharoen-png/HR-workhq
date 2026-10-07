@@ -127,6 +127,15 @@ export default function AddEmployeePage() {
     }));
   }
 
+  /** Row 0 is the primary company; later rows are the extra companies, '' until chosen. */
+  function selectRowCompany(index: number, cid: string) {
+    if (index === 0) {
+      setCompanyId(cid);
+      return;
+    }
+    setAdditionalCompanyIds((prev) => prev.map((id, i) => (i === index - 1 ? cid : id)));
+  }
+
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -190,7 +199,7 @@ export default function AddEmployeePage() {
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         companyId,
-        additionalCompanyIds: additionalCompanyIds.filter((id) => id !== companyId),
+        additionalCompanyIds: activeCompanyIds.filter((id) => id !== companyId),
         companyAssignments,
         department: primaryOrg?.department || undefined,
         teamId: primaryOrg?.teamId || undefined,
@@ -273,41 +282,10 @@ export default function AddEmployeePage() {
 
         <WorkHQCard title={th.addEmployee.employmentInfo}>
           <div className="whq-form-row">
-            <WorkHQField label={th.addEmployee.company}>
-              <WorkHQSelect required value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-                <option value="">{th.nav.selectCompany}</option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </WorkHQSelect>
-            </WorkHQField>
             <WorkHQField label={th.addEmployee.startDate}>
               <WorkHQDateInput required value={startDate} onChange={setStartDate} />
             </WorkHQField>
           </div>
-
-          {companies.length > 1 && (
-            <WorkHQField label="บริษัทเพิ่มเติม (ถ้าทำงานหลายบริษัท)">
-              <div className="whq-checkbox-group whq-checkbox-group--inline">
-                {companies.filter((c) => c.id !== companyId).map((c) => (
-                  <label key={c.id} className="whq-checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={additionalCompanyIds.includes(c.id)}
-                      onChange={(e) => {
-                        setAdditionalCompanyIds((prev) => (
-                          e.target.checked
-                            ? [...prev, c.id]
-                            : prev.filter((id) => id !== c.id)
-                        ));
-                      }}
-                    />
-                    <span>{c.name}</span>
-                  </label>
-                ))}
-              </div>
-            </WorkHQField>
-          )}
 
           <EmployeePerCompanyOrgFields
             companyIds={activeCompanyIds}
@@ -317,6 +295,12 @@ export default function AddEmployeePage() {
             position={position}
             onPositionChange={setPosition}
             allowMultipleTeams
+            companyPicker={{
+              rows: [companyId, ...additionalCompanyIds],
+              onSelect: selectRowCompany,
+              onRemove: (index) => setAdditionalCompanyIds((prev) => prev.filter((_, i) => i !== index - 1)),
+              onAdd: () => setAdditionalCompanyIds((prev) => [...prev, '']),
+            }}
           />
           <div className="whq-form-row">
             <WorkHQField label={th.addEmployee.employmentType}>
