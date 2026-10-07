@@ -15,9 +15,17 @@ import { ShiftAssignmentService } from '../../attendance/application/shift-assig
 import type { BusinessRoleCode } from '../../permission/domain/entities/business-role.types';
 import { ASSIGNMENT_REPOSITORY, AssignmentRepository } from '../domain/repositories/employee.repository';
 import { EmployeeAssignment } from '../domain/entities/employee-assignment.entity';
+import { allTeamIdsFor } from '../domain/services/company-teams.util';
 import { EmployeeService } from './employee.service';
 import { SharedPayrollService } from '../../payroll/application/shared-payroll.service';
 import { resolveAdminCommissionOfficeType } from '../../payroll/domain/services/shared-payroll.policy';
+
+/** Several rows can share a company (one per team); the primary team's row comes first. */
+const PRIMARY_TEAM_FIRST: Prisma.EmployeeAssignmentOrderByWithRelationInput[] = [
+  { isPrimaryTeam: 'desc' },
+  { isPrimaryCompany: 'desc' },
+  { effectiveFrom: 'asc' },
+];
 
 type EmployeeRef = {
   id: string;
@@ -56,6 +64,7 @@ export class EmployeeEmploymentService {
       include: {
         assignments: {
           where: { effectiveTo: null, deletedAt: null },
+          orderBy: [{ isPrimaryCompany: 'desc' }, { isPrimaryTeam: 'desc' }, { effectiveFrom: 'asc' }],
           include: {
             company: { select: { id: true, name: true, code: true } },
             team: {
@@ -83,6 +92,7 @@ export class EmployeeEmploymentService {
       teamId: row.teamId,
       teamName: row.team?.name ?? null,
       isPrimary: row.isPrimaryCompany,
+      isPrimaryTeam: row.isPrimaryTeam,
     }));
     const effectiveAccess = await this.accessControl
       .getEmployeeAccessContext(employeeId)
@@ -174,6 +184,7 @@ export class EmployeeEmploymentService {
     const beforeEmployee = await this.prisma.employee.findFirstOrThrow({ where: { id: employeeId } });
     const beforeAssignment = await this.prisma.employeeAssignment.findFirst({
       where: { employeeId, companyId: resolvedCompanyId, effectiveTo: null, deletedAt: null },
+      orderBy: PRIMARY_TEAM_FIRST,
     });
     const beforeSupervisor = await this.prisma.employeeHierarchy.findFirst({
       where: { employeeId, relationshipType: 'direct_manager', effectiveTo: null, deletedAt: null },
@@ -235,11 +246,13 @@ export class EmployeeEmploymentService {
       );
       afterAssignment = await this.prisma.employeeAssignment.findFirst({
         where: { employeeId, companyId: primaryCompanyId, effectiveTo: null, deletedAt: null },
+        orderBy: PRIMARY_TEAM_FIRST,
       });
     } else if (dto.companyId || dto.teamId !== undefined) {
       const targetCompany = dto.companyId ?? resolvedCompanyId;
       const current = await this.prisma.employeeAssignment.findFirst({
         where: { employeeId, companyId: targetCompany, effectiveTo: null, deletedAt: null },
+        orderBy: PRIMARY_TEAM_FIRST,
       });
       if (current) {
         afterAssignment = await this.prisma.employeeAssignment.update({
@@ -455,74 +468,119 @@ export class EmployeeEmploymentService {
     const desiredByCompany = new Map(rows.map((row) => [row.companyId, row]));
     const current = await this.prisma.employeeAssignment.findMany({
       where: { employeeId, effectiveTo: null, deletedAt: null },
+      orderBy: [{ isPrimaryTeam: 'desc' }, { effectiveFrom: 'asc' }],
     });
     const closeAt = new Date();
+    const closeRow = async (assignment: (typeof current)[number]) => {
+      const entity = EmployeeAssignment.rehydrate({
+        id: assignment.id,
+        employeeId: assignment.employeeId,
+        companyId: assignment.companyId,
+        teamId: assignment.teamId,
+        functionId: assignment.functionId,
+        roleLevel: assignment.roleLevel,
+        isPrimaryCompany: assignment.isPrimaryCompany,
+        isPrimaryTeam: assignment.isPrimaryTeam,
+        effectiveFrom: assignment.effectiveFrom,
+        effectiveTo: assignment.effectiveTo,
+        deletedAt: assignment.deletedAt,
+      });
+      entity.close(closeAt);
+      await this.assignments.save(entity, actor.userId);
+    };
 
     for (const assignment of current) {
-      if (!desiredByCompany.has(assignment.companyId)) {
-        const entity = EmployeeAssignment.rehydrate({
-          id: assignment.id,
-          employeeId: assignment.employeeId,
-          companyId: assignment.companyId,
-          teamId: assignment.teamId,
-          functionId: assignment.functionId,
-          roleLevel: assignment.roleLevel,
-          isPrimaryCompany: assignment.isPrimaryCompany,
-          isPrimaryTeam: assignment.isPrimaryTeam,
-          effectiveFrom: assignment.effectiveFrom,
-          effectiveTo: assignment.effectiveTo,
-          deletedAt: assignment.deletedAt,
-        });
-        entity.close(closeAt);
-        await this.assignments.save(entity, actor.userId);
-      }
+      if (!desiredByCompany.has(assignment.companyId)) await closeRow(assignment);
     }
 
-    const refreshed = await this.prisma.employeeAssignment.findMany({
-      where: { employeeId, effectiveTo: null, deletedAt: null },
-    });
-
+    // Desired team list per company, primary team first. `null` = in the company without a team.
+    const desiredTeamsByCompany = new Map<string, Array<string | null>>();
     for (const row of rows) {
-      const existing = refreshed.find((a) => a.companyId === row.companyId);
-      const isPrimary = row.companyId === primaryCompanyId;
-      if (!existing) {
+      const inCompany = current.filter((a) => a.companyId === row.companyId);
+      const primaryTeamId = row.teamId !== undefined ? (row.teamId || null) : (inCompany[0]?.teamId ?? null);
+      const extraTeamIds = row.extraTeamIds !== undefined
+        ? row.extraTeamIds
+        : inCompany.slice(1).map((a) => a.teamId).filter((id): id is string => Boolean(id));
+      const teams = allTeamIdsFor({ teamId: primaryTeamId, extraTeamIds });
+      desiredTeamsByCompany.set(row.companyId, teams.length ? teams : [null]);
+    }
+
+    // Keep rows whose team is still wanted; reuse the rest for newly picked teams (keeps history
+    // and role level when a team is swapped), close what is left over, create what is missing.
+    for (const [companyId, teams] of desiredTeamsByCompany) {
+      const inCompany = current.filter((a) => a.companyId === companyId);
+      const unmatchedRows = inCompany.filter((a) => !teams.includes(a.teamId));
+      const missingTeams = teams.filter((teamId) => !inCompany.some((a) => a.teamId === teamId));
+      for (const teamId of missingTeams) {
+        const reusable = unmatchedRows.shift();
+        if (reusable) {
+          await this.prisma.employeeAssignment.update({
+            where: { id: reusable.id },
+            data: { teamId, updatedBy: actor.userId },
+          });
+          continue;
+        }
         await this.employeeService.assign(actor, employeeId, {
-          companyId: row.companyId,
+          companyId,
           effectiveFrom: joinDateIso,
-          teamId: row.teamId ?? undefined,
-          isPrimaryCompany: isPrimary,
-          isPrimaryTeam: isPrimary && Boolean(row.teamId),
+          teamId: teamId ?? undefined,
         });
+      }
+      for (const leftover of unmatchedRows) await closeRow(leftover);
+      if (inCompany.length === 0) {
         await this.shiftAssignments.ensureDefaultDayShiftIfUnassigned(
           actor,
           employeeId,
-          row.companyId,
+          companyId,
           joinDateIso,
         ).catch(() => undefined);
-        continue;
-      }
-
-      const teamId = row.teamId !== undefined ? (row.teamId || null) : existing.teamId;
-      if (teamId !== existing.teamId || existing.isPrimaryCompany !== isPrimary) {
-        await this.prisma.employeeAssignment.update({
-          where: { id: existing.id },
-          data: {
-            teamId,
-            isPrimaryCompany: isPrimary,
-            isPrimaryTeam: isPrimary && Boolean(teamId),
-            updatedBy: actor.userId,
-          },
-        });
       }
     }
 
-    const stillOpen = await this.prisma.employeeAssignment.findMany({
+    // Primary flags: the primary team's row in each company is isPrimaryTeam, and that row in the
+    // primary company is isPrimaryCompany. Clear before setting so the partial unique indexes hold.
+    const open = await this.prisma.employeeAssignment.findMany({
       where: { employeeId, effectiveTo: null, deletedAt: null },
     });
-    if (stillOpen.length === 1 && !stillOpen[0].isPrimaryCompany) {
+    const effectivePrimaryCompanyId = desiredByCompany.has(primaryCompanyId)
+      ? primaryCompanyId
+      : (open.find((a) => a.isPrimaryCompany)?.companyId ?? open[0]?.companyId);
+    const desiredFlags = new Map(open.map((a) => {
+      const primaryTeamId = desiredTeamsByCompany.get(a.companyId)?.[0];
+      const isCompanyPrimaryRow = primaryTeamId !== undefined
+        ? a.teamId === primaryTeamId
+        : a.isPrimaryTeam || a.isPrimaryCompany;
+      return [a.id, {
+        isPrimaryTeam: isCompanyPrimaryRow && Boolean(a.teamId),
+        isPrimaryCompany: isCompanyPrimaryRow && a.companyId === effectivePrimaryCompanyId,
+      }];
+    }));
+    for (const a of open) {
+      const want = desiredFlags.get(a.id)!;
+      const clearTeam = a.isPrimaryTeam && !want.isPrimaryTeam;
+      const clearCompany = a.isPrimaryCompany && !want.isPrimaryCompany;
+      if (!clearTeam && !clearCompany) continue;
       await this.prisma.employeeAssignment.update({
-        where: { id: stillOpen[0].id },
-        data: { isPrimaryCompany: true, updatedBy: actor.userId },
+        where: { id: a.id },
+        data: {
+          ...(clearTeam ? { isPrimaryTeam: false } : {}),
+          ...(clearCompany ? { isPrimaryCompany: false } : {}),
+          updatedBy: actor.userId,
+        },
+      });
+    }
+    for (const a of open) {
+      const want = desiredFlags.get(a.id)!;
+      const setTeam = !a.isPrimaryTeam && want.isPrimaryTeam;
+      const setCompany = !a.isPrimaryCompany && want.isPrimaryCompany;
+      if (!setTeam && !setCompany) continue;
+      await this.prisma.employeeAssignment.update({
+        where: { id: a.id },
+        data: {
+          ...(setTeam ? { isPrimaryTeam: true } : {}),
+          ...(setCompany ? { isPrimaryCompany: true } : {}),
+          updatedBy: actor.userId,
+        },
       });
     }
   }
@@ -531,6 +589,7 @@ export class EmployeeEmploymentService {
     assignments: Array<{
       companyId: string;
       isPrimaryCompany: boolean;
+      isPrimaryTeam: boolean;
       teamId: string | null;
       company: { id: string; name: string; code: string };
       team: {
@@ -543,7 +602,9 @@ export class EmployeeEmploymentService {
     companyId?: string | null,
   ) {
     if (companyId) {
-      return assignments.find((a) => a.companyId === companyId) ?? null;
+      return assignments.find((a) => a.companyId === companyId && a.isPrimaryTeam)
+        ?? assignments.find((a) => a.companyId === companyId)
+        ?? null;
     }
     return assignments.find((a) => a.isPrimaryCompany) ?? assignments[0] ?? null;
   }

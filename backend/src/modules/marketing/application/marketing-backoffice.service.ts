@@ -306,6 +306,7 @@ export class MarketingBackOfficeService {
         deletedAt: null,
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }],
       },
+      orderBy: [{ isPrimaryTeam: 'desc' }, { isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
       include: { team: { select: { name: true } } },
     });
 

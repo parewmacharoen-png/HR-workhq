@@ -70,6 +70,7 @@ export class SelfOnboardingTelegramNotifier {
             globalId: true,
             assignments: {
               where: { effectiveTo: null, deletedAt: null },
+              orderBy: [{ isPrimaryCompany: 'desc' }, { isPrimaryTeam: 'desc' }, { effectiveFrom: 'asc' }],
               take: 1,
               select: {
                 company: { select: { name: true } },

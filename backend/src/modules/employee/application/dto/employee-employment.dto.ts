@@ -10,7 +10,10 @@ const OFFICE_TYPES = ['front_office', 'back_office'] as const;
 
 export class EmploymentCompanyAssignmentDto {
   @IsUUID() companyId!: string;
+  /** Primary team in this company. */
   @IsOptional() @IsUUID() teamId?: string | null;
+  /** Further teams in this company; omitted = keep the current extra teams. */
+  @IsOptional() @IsArray() @IsUUID('4', { each: true }) extraTeamIds?: string[];
   @IsOptional() @IsString() @Length(0, 120) department?: string;
 }
 

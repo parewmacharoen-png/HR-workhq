@@ -2964,6 +2964,17 @@ button.whq-att-day--clickable:hover {
   cursor: pointer;
 }
 
+/* One company per row: company / department / team */
+.whq-form-row--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.whq-company-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
 @media (max-width: 640px) {
   .whq-form-row { grid-template-columns: 1fr; }
 }

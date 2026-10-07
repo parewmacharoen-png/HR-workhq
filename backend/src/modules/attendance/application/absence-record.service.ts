@@ -214,7 +214,7 @@ export class AbsenceRecordService {
         effectiveTo: null,
         deletedAt: null,
       },
-      orderBy: { isPrimaryCompany: 'desc' },
+      orderBy: [{ isPrimaryCompany: 'desc' }, { isPrimaryTeam: 'desc' }],
     });
     const roleLevel = (assignment?.roleLevel ?? 'employee') as AbsenceRoleLevel;
     return { position: emp?.position ?? null, roleLevel };

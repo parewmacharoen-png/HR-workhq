@@ -104,7 +104,10 @@ export interface EmployeeListResponse {
 export class OnboardCompanyAssignmentDto {
   @IsUUID() companyId!: string;
   @IsOptional() @IsString() @Length(1, 120) department?: string;
+  /** Primary team in this company. */
   @IsOptional() @IsUUID() teamId?: string;
+  /** Further teams the employee also works in within this company. */
+  @IsOptional() @IsArray() @IsUUID('4', { each: true }) extraTeamIds?: string[];
 }
 
 export class CreateEmployeeOnboardDto {

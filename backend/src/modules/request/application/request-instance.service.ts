@@ -963,6 +963,7 @@ export class RequestInstanceService {
     const emp = await this.prisma.employee.findUnique({ where: { id: employeeId } });
     const assignment = await this.prisma.employeeAssignment.findFirst({
       where: { employeeId, companyId, effectiveTo: null, deletedAt: null },
+      orderBy: [{ isPrimaryTeam: 'desc' }, { effectiveFrom: 'asc' }],
     });
     const access = await this.prisma.user.findFirst({
       where: { employeeId },

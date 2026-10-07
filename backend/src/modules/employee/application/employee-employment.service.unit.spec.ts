@@ -36,12 +36,14 @@ describe('EmployeeEmploymentService change tracking', () => {
           companyId: 'co-1',
           teamId: 'team-1',
         }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       employeeHierarchy: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       adminCommissionEmployeeProfile: {
         findFirst: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn(),
       },
       employeeChangeHistory: { create: createHistory },
     };

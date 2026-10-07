@@ -8,6 +8,7 @@ import { BusinessRoleScopeFields } from '../../components/hr/BusinessRoleScopeFi
 import {
   EmployeePerCompanyOrgFields,
   type CompanyOrgSelection,
+  type CompanyRowsEditor,
 } from '../../components/hr/EmployeePerCompanyOrgFields';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -122,9 +123,40 @@ export default function AddEmployeePage() {
       [cid]: {
         department: patch.department ?? prev[cid]?.department ?? '',
         teamId: patch.department !== undefined ? '' : (patch.teamId ?? prev[cid]?.teamId ?? ''),
+        extraTeamIds: patch.extraTeamIds ?? prev[cid]?.extraTeamIds ?? [],
       },
     }));
   }
+
+  const companyRows: CompanyRowsEditor = {
+    onAddCompany() {
+      const next = companies.find((c) => !activeCompanyIds.includes(c.id));
+      if (next) setAdditionalCompanyIds((prev) => [...prev, next.id]);
+    },
+    onChangeCompany(fromId, toId) {
+      if (!toId || fromId === toId) return;
+      if (fromId === companyId) setCompanyId(toId);
+      else setAdditionalCompanyIds((prev) => prev.map((id) => (id === fromId ? toId : id)));
+      // Teams belong to one company, so only the department carries over.
+      setCompanyOrgById((prev) => {
+        const { [fromId]: moved, ...rest } = prev;
+        return { ...rest, [toId]: { department: moved?.department ?? '', teamId: '', extraTeamIds: [] } };
+      });
+    },
+    onRemoveCompany(cid) {
+      if (cid === companyId) return;
+      setAdditionalCompanyIds((prev) => prev.filter((id) => id !== cid));
+      setCompanyOrgById((prev) => {
+        const { [cid]: _removed, ...rest } = prev;
+        return rest;
+      });
+    },
+    onMakePrimary(cid) {
+      if (cid === companyId) return;
+      setAdditionalCompanyIds((prev) => [companyId, ...prev.filter((id) => id !== cid && id !== companyId)]);
+      setCompanyId(cid);
+    },
+  };
 
   useEffect(() => {
     void (async () => {
@@ -136,12 +168,12 @@ export default function AddEmployeePage() {
         ]);
         setCompanies(companyList);
         setTemplates(roleTemplates);
-        if (!companyId && companyList[0]) setCompanyId(companyList[0].id);
+        setCompanyId((current) => current || companyList[0]?.id || '');
       } finally {
         setLoading(false);
       }
     })();
-  }, [companyId]);
+  }, []);
 
   useEffect(() => {
     if (!companyId) return;
@@ -171,11 +203,17 @@ export default function AddEmployeePage() {
     setError('');
     try {
       const primaryOrg = companyOrgById[companyId];
-      const companyAssignments = activeCompanyIds.map((cid) => ({
-        companyId: cid,
-        department: companyOrgById[cid]?.department || undefined,
-        teamId: companyOrgById[cid]?.teamId || undefined,
-      }));
+      const companyAssignments = activeCompanyIds.map((cid) => {
+        const org = companyOrgById[cid];
+        const teamId = org?.teamId || undefined;
+        const extraTeamIds = teamId ? (org?.extraTeamIds ?? []).filter((id) => id !== teamId) : [];
+        return {
+          companyId: cid,
+          department: org?.department || undefined,
+          teamId,
+          extraTeamIds: extraTeamIds.length ? extraTeamIds : undefined,
+        };
+      });
       const created = await onboardEmployee({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -266,41 +304,10 @@ export default function AddEmployeePage() {
 
         <WorkHQCard title={th.addEmployee.employmentInfo}>
           <div className="whq-form-row">
-            <WorkHQField label={th.addEmployee.company}>
-              <WorkHQSelect required value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-                <option value="">{th.nav.selectCompany}</option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </WorkHQSelect>
-            </WorkHQField>
             <WorkHQField label={th.addEmployee.startDate}>
               <WorkHQDateInput required value={startDate} onChange={setStartDate} />
             </WorkHQField>
           </div>
-
-          {companies.length > 1 && (
-            <WorkHQField label="บริษัทเพิ่มเติม (ถ้าทำงานหลายบริษัท)">
-              <div className="whq-checkbox-group whq-checkbox-group--inline">
-                {companies.filter((c) => c.id !== companyId).map((c) => (
-                  <label key={c.id} className="whq-checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={additionalCompanyIds.includes(c.id)}
-                      onChange={(e) => {
-                        setAdditionalCompanyIds((prev) => (
-                          e.target.checked
-                            ? [...prev, c.id]
-                            : prev.filter((id) => id !== c.id)
-                        ));
-                      }}
-                    />
-                    <span>{c.name}</span>
-                  </label>
-                ))}
-              </div>
-            </WorkHQField>
-          )}
 
           <EmployeePerCompanyOrgFields
             companyIds={activeCompanyIds}
@@ -309,6 +316,8 @@ export default function AddEmployeePage() {
             onChange={updateCompanyOrg}
             position={position}
             onPositionChange={setPosition}
+            allowMultipleTeams
+            companyRows={companyRows}
           />
           <div className="whq-form-row">
             <WorkHQField label={th.addEmployee.employmentType}>

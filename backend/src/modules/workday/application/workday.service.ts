@@ -460,6 +460,7 @@ export class WorkDayService {
         lastName: true,
         assignments: {
           where: { companyId, effectiveTo: null, deletedAt: null },
+          orderBy: [{ isPrimaryTeam: 'desc' }, { isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
           take: 1,
           select: {
             companyId: true,

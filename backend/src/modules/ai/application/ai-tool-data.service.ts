@@ -148,6 +148,7 @@ export class AiToolDataService {
         effectiveTo: null,
         deletedAt: null,
       },
+      orderBy: [{ isPrimaryTeam: 'desc' }, { isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
       include: {
         company: { select: { code: true, name: true } },
         team: { select: { name: true } },
