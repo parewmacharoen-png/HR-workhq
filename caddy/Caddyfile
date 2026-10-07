@@ -1,0 +1,48 @@
+# ============================================================================
+# caddy/Caddyfile — WorkHQ reverse proxy (production VPS)
+#
+# Caddy obtains and renews the Let's Encrypt certificate automatically.
+# WORKHQ_DOMAIN must already point (DNS A record) at this server.
+#
+# Other company sites can share this Caddy later: add another
+#   other.example.com { reverse_proxy other-container:3000 }
+# block below and attach that container to the same Docker network.
+# ============================================================================
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$WORKHQ_DOMAIN} {
+	encode zstd gzip
+
+	# Uploads (ID cards, contracts) are capped at 10 MB by the API too.
+	request_body {
+		max_size 15MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "microphone=(), camera=()"
+		-Server
+	}
+
+	# API + Telegram webhook (/api/v1/telegram/webhook). Rate limiting is done
+	# per client IP by the API's ThrottlerGuard (trust proxy is enabled there).
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# React back office (SPA fallback is handled by the web container's nginx).
+	handle {
+		reverse_proxy web:80
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

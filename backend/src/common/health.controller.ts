@@ -26,6 +26,14 @@ export class HealthController {
     private readonly metrics: MetricsService,
   ) {}
 
+  /** Process-only liveness for uptime pingers — touches no DB/Redis/Telegram, so frequent pings stay cheap. */
+  @Public()
+  @SkipThrottle()
+  @Get('live')
+  live() {
+    return { status: 'ok', time: new Date().toISOString() };
+  }
+
   @Public()
   @SkipThrottle()
   @Get()

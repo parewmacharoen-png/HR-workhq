@@ -9,18 +9,23 @@ import './common/monitoring/sentry.instrument';
 
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import * as Sentry from '@sentry/nestjs';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AppConfigService } from './config/app-config.service';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
 
   const config = app.get(AppConfigService);
   const logger = new Logger('Bootstrap');
+
+  // The API always sits behind one reverse proxy (Caddy on the VPS, Render's router).
+  // Without this, req.ip is the proxy's address and every user shares one throttle bucket.
+  app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
 
   app.use(helmet());
 

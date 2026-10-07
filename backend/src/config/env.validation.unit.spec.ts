@@ -49,3 +49,26 @@ describe('validateEnv production hardening', () => {
     expect(result.MARKETING_ENABLED).toBe(false);
   });
 });
+
+describe('validateEnv document storage', () => {
+  it('defaults to local storage', () => {
+    expect(validateEnv(baseEnv).DOCUMENT_STORAGE_DRIVER).toBe('local');
+  });
+
+  it('requires a bucket when using s3', () => {
+    expect(() => validateEnv({ ...baseEnv, DOCUMENT_STORAGE_DRIVER: 's3' }))
+      .toThrow(/DOCUMENT_STORAGE_BUCKET is required/);
+  });
+
+  it('accepts s3 with a bucket', () => {
+    expect(() => validateEnv({
+      ...baseEnv,
+      DOCUMENT_STORAGE_DRIVER: 's3',
+      DOCUMENT_STORAGE_BUCKET: 'workhq-docs',
+    })).not.toThrow();
+  });
+
+  it('rejects unknown drivers', () => {
+    expect(() => validateEnv({ ...baseEnv, DOCUMENT_STORAGE_DRIVER: 'ftp' })).toThrow();
+  });
+});

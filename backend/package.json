@@ -27,6 +27,7 @@
     "local:verify-correction": "ts-node -r tsconfig-paths/register scripts/verify-local-time-correction.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
     "@nestjs/cli": "^10.4.0",
     "@nestjs/common": "^10.4.0",
     "@nestjs/config": "^3.2.0",

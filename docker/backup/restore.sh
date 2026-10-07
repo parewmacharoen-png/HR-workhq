@@ -10,6 +10,7 @@
 #   RESTORE_DATABASE_URL   Target DB (overrides arg; required if no arg)
 #   PG_RESTORE_CMD         pg_restore binary override (default: pg_restore)
 #   DROP_SCHEMAS           When "true", drop application schemas first (default: true)
+#   BACKUP_ENCRYPTION_PASSPHRASE  Required for *.dump.enc files (decrypted to a temp file)
 # ============================================================================
 
 set -euo pipefail
@@ -25,6 +26,15 @@ fi
 if [[ ! -f "$backup_file" ]]; then
   echo "ERROR: backup file not found: $backup_file" >&2
   exit 1
+fi
+
+if [[ "$backup_file" == *.enc ]]; then
+  : "${BACKUP_ENCRYPTION_PASSPHRASE:?BACKUP_ENCRYPTION_PASSPHRASE is required to restore an encrypted backup}"
+  decrypted="$(mktemp --suffix=.dump)"
+  trap 'rm -f "$decrypted"' EXIT
+  openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000     -pass env:BACKUP_ENCRYPTION_PASSPHRASE     -in "$backup_file" -out "$decrypted"
+  echo "[restore] Decrypted ${backup_file}"
+  backup_file="$decrypted"
 fi
 
 if [[ -z "$target_url" ]]; then

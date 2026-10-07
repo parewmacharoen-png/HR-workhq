@@ -34,6 +34,15 @@ describe('HealthController', () => {
     metrics as never,
   );
 
+  it('live probe answers without touching dependencies', () => {
+    jest.clearAllMocks();
+    expect(controller.live().status).toBe('ok');
+    expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+    expect(prisma.outboxEvent.count).not.toHaveBeenCalled();
+    expect(redisHealth.ping).not.toHaveBeenCalled();
+    expect(telegramHealth.check).not.toHaveBeenCalled();
+  });
+
   it('returns structured health status', async () => {
     const result = await controller.health();
 

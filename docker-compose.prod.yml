@@ -1,184 +1,191 @@
 # ============================================================================
-# WorkHQ — docker-compose.prod.yml (production overrides)
+# WorkHQ — docker-compose.prod.yml (production overrides for a single VPS)
 # Apply on top of the base compose file:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
 # Changes from dev:
-#   * NODE_ENV=production
-#   * Secrets come from environment variables, NOT an .env file
-#   * Resource limits on all services
-#   * PostgreSQL bound only to internal network (no host port)
-#   * Redis password required
-#   * Nginx reverse proxy added (TLS termination, rate limiting)
-#   * Named external network for cross-service communication
-#   * Restart policy: always
+#   * NODE_ENV=production, restart: always, resource limits
+#   * Postgres / Redis / API / web publish NO host ports (`!reset` is required —
+#     a plain `ports: []` is merged with the base file and would leave 5432/6379
+#     open to the internet; Docker bypasses ufw)
+#   * Caddy is the only public entrypoint (80/443) and handles TLS automatically
+#   * Uploaded documents go to S3 (DOCUMENT_STORAGE_DRIVER=s3)
+#   * Nightly pg_dump is encrypted and copied to S3 (daily / monthly / yearly)
 #
-# Required environment variables (set in your deployment platform):
-#   DATABASE_URL          postgresql://user:pass@host:5432/dbname
-#   REDIS_URL             redis://:pass@redis:6379
-#   REDIS_PASSWORD        (matches the redis service password)
-#   JWT_SECRET            (minimum 64 chars in production)
-#   TELEGRAM_BOT_TOKEN    (from @BotFather)
-#   TELEGRAM_WEBHOOK_URL  https://your-domain.com/telegram/webhook
-#   TELEGRAM_WEBHOOK_SECRET (random string to verify Telegram payloads)
-#   CORS_ORIGINS          https://your-domain.com
+# All secrets live in `.env` next to this file on the server (chmod 600).
+# See `.env.production.example` and DEPLOY_VPS.md.
 # ============================================================================
+
+x-db-url: &db-url postgresql://${POSTGRES_USER:-workhq}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-workhq}
 
 services:
 
-  # ── Database migrations (one-shot; never run inside API replicas) ─────────
+  # ── Database migrations (one-shot; never run inside the API) ───────────────
   migrate:
     restart: "no"
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in production}
+      DATABASE_URL: *db-url
+      DIRECT_URL: *db-url
 
-  # ── PostgreSQL (production hardening) ────────────────────────────────────
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
   postgres:
     restart: always
-    # Do NOT expose port 5432 to host in production
-    ports: []
+    ports: !reset []
     environment:
       POSTGRES_USER:     ${POSTGRES_USER:-workhq}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB:       ${POSTGRES_DB:-workhq}
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: '1.5'
           memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      # Schemas init script still needed on first boot
-      - ./docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/01-schemas.sql:ro
 
-  # ── Redis (with password) ─────────────────────────────────────────────────
+  # ── Redis (password required, internal only) ──────────────────────────────
   redis:
     restart: always
+    ports: !reset []
     command: >
       redis-server
       --appendonly yes
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
-      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
-    # Do NOT expose port 6379 to host in production
-    ports: []
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     deploy:
       resources:
         limits:
           cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
+          memory: 384M
 
-  # ── WorkHQ API (production settings) ────────────────────────────────────
+  # ── WorkHQ API ─────────────────────────────────────────────────────────────
+  # One replica only: attendance/absence schedulers run in-process without a
+  # distributed lock, so a second replica would send every Telegram alert twice.
+  # Least privilege: no env_file — the API gets only the variables listed here
+  # (it never sees e.g. BACKUP_ENCRYPTION_PASSPHRASE).
   api:
     restart: always
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    env_file: []
-    # Production: no port binding — Nginx proxies to the container
-    ports: []
+    ports: !reset []
+    env_file: !reset []
     environment:
       NODE_ENV:     production
       PORT:         3000
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in production}
-      REDIS_URL:    ${REDIS_URL:-redis://:${REDIS_PASSWORD}@redis:6379}
-      JWT_SECRET:   ${JWT_SECRET:?JWT_SECRET must be set in production}
+      DATABASE_URL: *db-url
+      DIRECT_URL:   *db-url
+      REDIS_URL:    redis://:${REDIS_PASSWORD}@redis:6379
+      LOG_LEVEL:    ${LOG_LEVEL:-warn}
+      TRUST_PROXY_HOPS: 1
+      JWT_SECRET:      ${JWT_SECRET:?JWT_SECRET must be set (64+ chars)}
       JWT_ACCESS_TTL:  ${JWT_ACCESS_TTL:-15m}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
-      LOG_LEVEL:    ${LOG_LEVEL:-warn}
-      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set in production}
-      TELEGRAM_BOT_TOKEN:     ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_WEBHOOK_URL:   ${TELEGRAM_WEBHOOK_URL:-}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
-      ANTHROPIC_API_KEY:      ${ANTHROPIC_API_KEY:-}
-      OPENAI_API_KEY:           ${OPENAI_API_KEY:-}
-      SENTRY_DSN:             ${SENTRY_DSN:-}
-      METRICS_TOKEN:          ${METRICS_TOKEN:?METRICS_TOKEN must be set in production}
+      METRICS_TOKEN:   ${METRICS_TOKEN:?METRICS_TOKEN must be set}
+      TELEGRAM_BOT_TOKEN:      ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME:   ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      SENTRY_DSN:        ${SENTRY_DSN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY:    ${OPENAI_API_KEY:-}
+      MARKETING_ENABLED: ${MARKETING_ENABLED:-false}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL:  ${GOOGLE_SERVICE_ACCOUNT_EMAIL:-}
+      GOOGLE_PRIVATE_KEY:            ${GOOGLE_PRIVATE_KEY:-}
+      GOOGLE_DRIVE_EXPORT_FOLDER_ID: ${GOOGLE_DRIVE_EXPORT_FOLDER_ID:-}
+      AWS_ACCESS_KEY_ID:     ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # Public URLs, all derived from the one domain
+      CORS_ORIGINS:           https://${WORKHQ_DOMAIN:?WORKHQ_DOMAIN must be set}
+      WORKHQ_WEB_URL:         https://${WORKHQ_DOMAIN}
+      WEB_APP_BASE_URL:       https://${WORKHQ_DOMAIN}
+      APP_URL:                https://${WORKHQ_DOMAIN}
+      WORKHQ_PUBLIC_API_BASE: https://${WORKHQ_DOMAIN}/api/v1
+      API_PUBLIC_BASE:        https://${WORKHQ_DOMAIN}/api/v1
+      TELEGRAM_WEBHOOK_URL:   https://${WORKHQ_DOMAIN}/api/v1/telegram/webhook/${TELEGRAM_WEBHOOK_SECRET:?TELEGRAM_WEBHOOK_SECRET must be set}
+      # Uploaded documents → private, encrypted S3 bucket
+      DOCUMENT_STORAGE_DRIVER: ${DOCUMENT_STORAGE_DRIVER:-s3}
+      DOCUMENT_STORAGE_BUCKET: ${S3_BUCKET:-}
+      DOCUMENT_STORAGE_REGION: ${AWS_REGION:-ap-southeast-1}
+      DOCUMENT_STORAGE_PREFIX: documents/
+      DOCUMENT_STORAGE_ENDPOINT: ${S3_ENDPOINT:-}   # blank = AWS; set for R2/MinIO
+      # Exports are temporary files and stay on the local volume
       DOCUMENT_STORAGE_BASE_PATH: /var/workhq/storage/documents
-    volumes:
-      - document_storage:/var/workhq/storage
     deploy:
-      replicas: 2
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
+          cpus: '1.5'
+          memory: 1536M
 
-  # ── WorkHQ Web ────────────────────────────────────────────────────────────
+  # ── WorkHQ Web (static React build served by nginx inside the container) ──
   web:
-    build:
-      context: .
-      dockerfile: web/Dockerfile
-      args:
-        VITE_API_BASE: /api/v1
-    container_name: workhq-web
     restart: always
-    depends_on:
-      api:
-        condition: service_healthy
+    ports: !reset []
     deploy:
-      replicas: 1
       resources:
         limits:
           cpus: '0.25'
           memory: 128M
 
-  # ── Daily PostgreSQL backups ──────────────────────────────────────────────
+  # ── Nightly encrypted backups → local disk + S3 ────────────────────────────
   backup-cron:
     restart: always
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in production}
+      DATABASE_URL: *db-url
       BACKUP_DIR: /backups
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
-      BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 2 * * *}
-    volumes:
-      - ${BACKUP_HOST_DIR:-./backups}:/backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 19 * * *}   # 02:00 Bangkok
+      BACKUP_ENCRYPTION_PASSPHRASE: ${BACKUP_ENCRYPTION_PASSPHRASE:?BACKUP_ENCRYPTION_PASSPHRASE must be set}
+      BACKUP_S3_BUCKET: ${S3_BUCKET:-}
+      BACKUP_S3_PREFIX: backups/
+      BACKUP_S3_ENDPOINT: ${S3_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-ap-southeast-1}
     deploy:
-      replicas: 1
       resources:
         limits:
-          cpus: '0.25'
+          cpus: '0.5'
           memory: 256M
 
-  # ── Nginx reverse proxy ───────────────────────────────────────────────────
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: workhq-nginx
+  # ── Caddy: the only public entrypoint, automatic HTTPS ─────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: workhq-caddy
     restart: always
     depends_on:
       - api
+      - web
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
+    environment:
+      WORKHQ_DOMAIN: ${WORKHQ_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set (Let's Encrypt expiry notices)}
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro        # TLS certificates (Let's Encrypt or similar)
-      - nginx_cache:/var/cache/nginx
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     deploy:
       resources:
         limits:
           cpus: '0.5'
           memory: 128M
 
+# Data volumes are `external` so `docker compose down -v` can never delete them.
+# Create once on the server (scripts/vps/setup-server.sh does this):
+#   docker volume create workhq_postgres_data
+#   docker volume create workhq_redis_data
+#   docker volume create workhq_document_storage
 volumes:
   postgres_data:
-    external: true     # Created once by ops: docker volume create workhq_postgres_data
+    external: true
+    name: workhq_postgres_data
   redis_data:
-    external: true     # Created once by ops: docker volume create workhq_redis_data
+    external: true
+    name: workhq_redis_data
   document_storage:
-    external: true     # Created once by ops: docker volume create workhq_document_storage
-  nginx_cache:
+    external: true
+    name: workhq_document_storage
+  caddy_data:
+  caddy_config:

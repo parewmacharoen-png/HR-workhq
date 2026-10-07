@@ -5,7 +5,7 @@
 
 import { plainToInstance, Transform } from 'class-transformer';
 import {
-  IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min, MinLength, validateSync,
+  IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, Min, MinLength, validateSync,
 } from 'class-validator';
 
 export enum NodeEnv {
@@ -99,6 +99,15 @@ export class EnvVars {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   MARKETING_ENABLED = false;
+
+  /** Where uploaded documents live: `local` disk or `s3` (see s3-document-storage.service.ts). */
+  @IsOptional()
+  @IsIn(['local', 's3'])
+  DOCUMENT_STORAGE_DRIVER = 'local';
+
+  @IsOptional()
+  @IsString()
+  DOCUMENT_STORAGE_BUCKET?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {
@@ -111,6 +120,10 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
       .map((e) => Object.values(e.constraints ?? {}).join(', '))
       .join('; ');
     throw new Error(`Invalid environment configuration: ${details}`);
+  }
+
+  if (validated.DOCUMENT_STORAGE_DRIVER === 's3' && !validated.DOCUMENT_STORAGE_BUCKET) {
+    throw new Error('Invalid environment configuration: DOCUMENT_STORAGE_BUCKET is required when DOCUMENT_STORAGE_DRIVER=s3');
   }
 
   if (validated.NODE_ENV === NodeEnv.production || validated.NODE_ENV === NodeEnv.staging) {
