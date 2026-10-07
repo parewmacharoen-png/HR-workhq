@@ -3,7 +3,7 @@ import { RequestInstanceService } from './request-instance.service';
 
 describe('TelegramRegistrationRequestBridgeService', () => {
   const prisma = {
-    requestType: { findFirst: jest.fn() },
+    requestType: { findFirst: jest.fn(), findMany: jest.fn() },
     requestInstance: { findFirst: jest.fn(), findMany: jest.fn() },
     registrationRequest: { update: jest.fn() },
     employeeSelfOnboardingSubmission: { update: jest.fn() },
@@ -24,7 +24,7 @@ describe('TelegramRegistrationRequestBridgeService', () => {
       audit as never,
       instances as unknown as RequestInstanceService,
     );
-    prisma.requestType.findFirst.mockResolvedValue({ id: 'type-1' });
+    prisma.requestType.findMany.mockResolvedValue([{ id: 'type-1' }]);
   });
 
   it('submits existing draft instead of leaving it draft', async () => {
@@ -56,7 +56,7 @@ describe('TelegramRegistrationRequestBridgeService', () => {
     expect(id).toBe('req-new');
     expect(instances.createAndSubmitSystemRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        typeKey: 'telegram_registration_review',
+        typeKey: 'employee_onboarding',
         companyId: 'co-1',
         requesterEmployeeId: 'emp-1',
       }),
@@ -64,7 +64,6 @@ describe('TelegramRegistrationRequestBridgeService', () => {
   });
 
   it('repairDraftRequests submits all drafts', async () => {
-    prisma.requestType.findFirst.mockResolvedValue({ id: 'type-1' });
     prisma.requestInstance.findMany.mockResolvedValue([{ id: 'd1' }, { id: 'd2' }]);
     const result = await service.repairDraftRequests();
     expect(result.repaired).toEqual(['d1', 'd2']);

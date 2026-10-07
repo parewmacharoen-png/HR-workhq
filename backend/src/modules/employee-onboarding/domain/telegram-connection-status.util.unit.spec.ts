@@ -26,7 +26,7 @@ function createPrismaMock(overrides: {
     requestInstance: {
       findFirst: jest.fn().mockResolvedValue(overrides.requestInstance ?? null),
     },
-  } as never;
+  };
 }
 
 describe('resolveTelegramConnectionStatus', () => {
@@ -40,7 +40,7 @@ describe('resolveTelegramConnectionStatus', () => {
       identity: { status: 'PENDING' },
     });
 
-    const status = await resolveTelegramConnectionStatus(prisma, 'emp-1');
+    const status = await resolveTelegramConnectionStatus(prisma as never, 'emp-1');
     expect(status).toBe('pending_review');
     expect(prisma.requestType.findMany).toHaveBeenCalled();
   });
@@ -52,7 +52,7 @@ describe('resolveTelegramConnectionStatus', () => {
       requestInstance: { id: 'req-1', status: 'in_review' },
     });
 
-    const status = await resolveTelegramConnectionStatus(prisma, 'emp-1');
+    const status = await resolveTelegramConnectionStatus(prisma as never, 'emp-1');
     expect(status).toBe('linked');
   });
 
@@ -64,7 +64,7 @@ describe('resolveTelegramConnectionStatus', () => {
       submission: { status: 'approved' },
     });
 
-    const status = await resolveTelegramConnectionStatus(prisma, 'emp-1');
+    const status = await resolveTelegramConnectionStatus(prisma as never, 'emp-1');
     expect(status).toBe('linked');
   });
 
@@ -76,7 +76,7 @@ describe('resolveTelegramConnectionStatus', () => {
       submission: { status: 'approved' },
     });
 
-    const status = await resolveTelegramConnectionStatus(prisma, 'emp-1');
+    const status = await resolveTelegramConnectionStatus(prisma as never, 'emp-1');
     expect(status).toBe('linked');
   });
 });

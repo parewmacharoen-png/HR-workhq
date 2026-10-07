@@ -77,6 +77,7 @@ const mockOverview = {
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({
     can: mockCan,
+    canAny: (...permissions: string[]) => permissions.some((p) => mockCan(p)),
     companyId: 'co-1',
     user: {
       id: 'u-1',
@@ -209,6 +210,9 @@ vi.mock('../../../api/employee-personal', () => ({
 
 vi.mock('../employee/EmployeeAttendanceTab', () => ({
   EmployeeAttendanceTab: () => <div>Attendance tab</div>,
+}));
+vi.mock('../employee/EmployeeWorkDayCommandCard', () => ({
+  EmployeeWorkDayCommandCard: () => <div>Work day card</div>,
 }));
 vi.mock('../employee/EmployeePayrollTab', () => ({
   EmployeePayrollTab: () => <div data-testid="employee-payroll-tab">Payroll tab</div>,
