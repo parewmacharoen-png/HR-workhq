@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchCompanyTeams } from '../../api/employee-employment';
 import { EMPLOYEE_DEPARTMENT_OPTIONS, EMPLOYEE_POSITION_OPTIONS } from '../../lib/employee-org-options';
 import { NO_DATA } from '../../lib/employee-date-utils';
-import { WorkHQField, WorkHQSelect } from '../ui';
+import { WorkHQButton, WorkHQField, WorkHQSelect } from '../ui';
 
 /** `teamId` is the primary team in the company; `extraTeamIds` are further teams there. */
 export type CompanyOrgSelection = { department: string; teamId: string; extraTeamIds?: string[] };
@@ -11,6 +11,19 @@ interface CompanyOption {
   id: string;
   name: string;
   code?: string;
+}
+
+/**
+ * Turns the list into editable rows: each row picks its own company, and rows can be
+ * added or removed. The first company in `companyIds` is the primary company.
+ */
+export interface CompanyRowsEditor {
+  /** Add a row for the next company not yet used. */
+  onAddCompany: () => void;
+  onChangeCompany: (fromCompanyId: string, toCompanyId: string) => void;
+  onRemoveCompany: (companyId: string) => void;
+  /** Omit to keep the primary company fixed. */
+  onMakePrimary?: (companyId: string) => void;
 }
 
 interface EmployeePerCompanyOrgFieldsProps {
@@ -22,6 +35,7 @@ interface EmployeePerCompanyOrgFieldsProps {
   onPositionChange?: (value: string) => void;
   /** Show "other teams in this company" checkboxes (needs a save path that sends extraTeamIds). */
   allowMultipleTeams?: boolean;
+  companyRows?: CompanyRowsEditor;
 }
 
 function companyLabel(c: CompanyOption | undefined, id: string): string {
@@ -37,6 +51,7 @@ export function EmployeePerCompanyOrgFields({
   position,
   onPositionChange,
   allowMultipleTeams = false,
+  companyRows,
 }: EmployeePerCompanyOrgFieldsProps) {
   const [teamsByCompany, setTeamsByCompany] = useState<Record<string, Array<{ id: string; name: string }>>>({});
   // Extra teams may sit in another department, so they are picked from every team in the company.
@@ -75,11 +90,18 @@ export function EmployeePerCompanyOrgFields({
   }, [allowMultipleTeams, companyIdsKey]);
 
   const multiCompany = companyIds.length > 1;
-  const sectionLabel = multiCompany ? 'แผนก / ทีม (ต่อบริษัท)' : 'แผนก / ทีม';
+  const sectionLabel = companyRows
+    ? 'บริษัท / แผนก / ทีม'
+    : multiCompany ? 'แผนก / ทีม (ต่อบริษัท)' : 'แผนก / ทีม';
+  const unusedCompanies = companies.filter((c) => !companyIds.includes(c.id));
 
   return (
     <WorkHQField label={sectionLabel}>
-      {multiCompany ? (
+      {companyRows ? (
+        <p className="whq-muted whq-text-sm whq-mb-sm">
+          ทำงานหลายบริษัท ให้กด &quot;+ เพิ่มบริษัท&quot; แล้วเลือกทีมของแต่ละบริษัท เช่น KW ทีม 1, SB ทีม 3
+        </p>
+      ) : multiCompany ? (
         <p className="whq-muted whq-text-sm whq-mb-sm">
           ตั้งแผนกและทีมแยกตามบริษัท — เช่น SB ทีม 1, KW ทีม 3
         </p>
@@ -94,14 +116,51 @@ export function EmployeePerCompanyOrgFields({
           <div
             key={cid}
             className="whq-invite-company-org"
-            style={{ marginBottom: multiCompany ? '1rem' : 0 }}
+            style={{ marginBottom: multiCompany || companyRows ? '1rem' : 0 }}
           >
-            {multiCompany ? (
+            {companyRows ? (
+              <div className="whq-company-row-head">
+                <span className="whq-muted whq-text-sm" style={{ fontWeight: 600 }}>
+                  {index === 0 ? 'บริษัทหลัก' : `บริษัทที่ ${index + 1}`}
+                </span>
+                {index > 0 ? (
+                  <span style={{ display: 'flex', gap: '0.25rem' }}>
+                    {companyRows.onMakePrimary ? (
+                      <WorkHQButton variant="ghost" onClick={() => companyRows.onMakePrimary?.(cid)}>
+                        ตั้งเป็นบริษัทหลัก
+                      </WorkHQButton>
+                    ) : null}
+                    <WorkHQButton
+                      variant="ghost"
+                      aria-label={`ลบ ${companyLabel(c, cid)}`}
+                      onClick={() => companyRows.onRemoveCompany(cid)}
+                    >
+                      ลบ
+                    </WorkHQButton>
+                  </span>
+                ) : null}
+              </div>
+            ) : multiCompany ? (
               <div className="whq-muted whq-text-sm" style={{ marginBottom: '0.35rem', fontWeight: 600 }}>
                 {index === 0 ? 'บริษัทหลัก · ' : ''}{companyLabel(c, cid)}
               </div>
             ) : null}
-            <div className="whq-form-row">
+            <div className={companyRows ? 'whq-form-row whq-form-row--3' : 'whq-form-row'}>
+              {companyRows ? (
+                <WorkHQField label="บริษัท">
+                  <WorkHQSelect
+                    value={cid}
+                    disabled={index === 0 && !companyRows.onMakePrimary}
+                    onChange={(e) => companyRows.onChangeCompany(cid, e.target.value)}
+                  >
+                    {companies
+                      .filter((row) => row.id === cid || !companyIds.includes(row.id))
+                      .map((row) => (
+                        <option key={row.id} value={row.id}>{companyLabel(row, row.id)}</option>
+                      ))}
+                  </WorkHQSelect>
+                </WorkHQField>
+              ) : null}
               <WorkHQField label="แผนก">
                 <WorkHQSelect
                   value={org.department}
@@ -149,6 +208,11 @@ export function EmployeePerCompanyOrgFields({
           </div>
         );
       })}
+      {companyRows && unusedCompanies.length > 0 ? (
+        <WorkHQButton variant="secondary" onClick={companyRows.onAddCompany}>
+          + เพิ่มบริษัท
+        </WorkHQButton>
+      ) : null}
       {onPositionChange && (
         <div style={{ marginTop: companyIds.length ? '0.75rem' : 0 }}>
           <WorkHQField label="ตำแหน่ง">

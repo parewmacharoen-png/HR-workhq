@@ -220,6 +220,20 @@ describe('EmployeeEmploymentTab', () => {
     await waitFor(() => expect(employmentApiMocks.updateEmployeeEmployment).toHaveBeenCalled());
   });
 
+  it('adds another company as a new row and saves it', async () => {
+    renderTab();
+    fireEvent.click(await screen.findByTestId('employment-edit-button'));
+    fireEvent.click(await screen.findByText('+ เพิ่มบริษัท'));
+    const companySelects = screen.getAllByLabelText('บริษัท') as HTMLSelectElement[];
+    expect(companySelects.map((s) => s.value)).toEqual(['co-1', 'co-2']);
+    // the primary company stays fixed when editing an existing employee
+    expect(companySelects[0]).toBeDisabled();
+    fireEvent.click(screen.getByTestId('employment-save-button'));
+    await waitFor(() => expect(employmentApiMocks.updateEmployeeEmployment).toHaveBeenCalled());
+    const payload = employmentApiMocks.updateEmployeeEmployment.mock.calls[0][1];
+    expect(payload.companyAssignments.map((row: { companyId: string }) => row.companyId)).toEqual(['co-1', 'co-2']);
+  });
+
   it('read-only when cannot edit employment', async () => {
     render(
       <MemoryRouter>

@@ -38,6 +38,7 @@ import { EmployeeBusinessRoleEditor } from './EmployeeBusinessRoleEditor';
 import {
   EmployeePerCompanyOrgFields,
   type CompanyOrgSelection,
+  type CompanyRowsEditor,
 } from '../EmployeePerCompanyOrgFields';
 
 const EMPLOYMENT_STATUSES = ['probation', 'active', 'suspended', 'terminated'] as const;
@@ -270,19 +271,31 @@ export function EmployeeEmploymentTab({
     });
   }
 
-  function toggleAdditionalCompany(cid: string, checked: boolean) {
-    if (cid === primaryCompanyId) return;
-    setActiveCompanyIds((prev) => {
-      if (checked) return prev.includes(cid) ? prev : [...prev, cid];
-      return prev.filter((id) => id !== cid);
-    });
-    if (checked) {
+  // The primary company stays fixed here; other companies are added, swapped or removed row by row.
+  const companyRows: CompanyRowsEditor = {
+    onAddCompany() {
+      const next = companies.find((c) => !orderedActiveCompanyIds.includes(c.id));
+      if (!next) return;
+      setActiveCompanyIds((prev) => [...prev, next.id]);
       setCompanyOrgById((prev) => ({
         ...prev,
-        [cid]: prev[cid] ?? { department: form?.department ?? '', teamId: '' },
+        [next.id]: prev[next.id] ?? { department: form?.department ?? '', teamId: '', extraTeamIds: [] },
       }));
-    }
-  }
+    },
+    onChangeCompany(fromId, toId) {
+      if (!toId || fromId === toId || fromId === primaryCompanyId) return;
+      setActiveCompanyIds((prev) => prev.map((id) => (id === fromId ? toId : id)));
+      // Teams belong to one company, so only the department carries over.
+      setCompanyOrgById((prev) => {
+        const { [fromId]: moved, ...rest } = prev;
+        return { ...rest, [toId]: { department: moved?.department ?? '', teamId: '', extraTeamIds: [] } };
+      });
+    },
+    onRemoveCompany(cid) {
+      if (cid === primaryCompanyId) return;
+      setActiveCompanyIds((prev) => prev.filter((id) => id !== cid));
+    },
+  };
 
   const dirty = useMemo(
     () => editing && baseline && form && (
@@ -465,26 +478,6 @@ export function EmployeeEmploymentTab({
                 <InfoRow label="รหัสพนักงาน" value={form.employeeCode} />
                 {editing ? (
                   <>
-                    <InfoRow
-                      label="บริษัทหลัก"
-                      value={companies.find((c) => c.id === primaryCompanyId)?.name ?? form.companyName ?? NO_DATA}
-                    />
-                    {companies.length > 1 && (
-                      <WorkHQField label="บริษัทเพิ่มเติม (ถ้าทำงานหลายบริษัท)">
-                        <div className="whq-checkbox-group whq-checkbox-group--inline">
-                          {companies.filter((c) => c.id !== primaryCompanyId).map((c) => (
-                            <label key={c.id} className="whq-checkbox-row">
-                              <input
-                                type="checkbox"
-                                checked={activeCompanyIds.includes(c.id)}
-                                onChange={(e) => toggleAdditionalCompany(c.id, e.target.checked)}
-                              />
-                              <span>{c.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </WorkHQField>
-                    )}
                     <EmployeePerCompanyOrgFields
                       companyIds={orderedActiveCompanyIds}
                       companies={companies}
@@ -493,6 +486,7 @@ export function EmployeeEmploymentTab({
                       position={form.position ?? ''}
                       onPositionChange={(v) => updateField('position', v || null)}
                       allowMultipleTeams
+                      companyRows={companyRows}
                     />
                   </>
                 ) : (
