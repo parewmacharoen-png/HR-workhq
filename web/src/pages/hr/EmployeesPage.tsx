@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchEmployeeList, mergeEmployeeLists, type EmployeeListItem } from '../../api/employees';
 import { ApiError } from '../../api/client';
@@ -25,14 +25,53 @@ import {
 } from '../../components/ui';
 import { employmentStatusLabel, th } from '../../i18n/th-labels';
 
-const STATUS_OPTIONS = [
-  { value: '', labelKey: 'workforceStatuses' as const },
-  { value: 'active', label: 'active' },
-  { value: 'probation', label: 'probation' },
-  { value: 'suspended', label: 'suspended' },
-  { value: 'terminated', label: 'terminated' },
-  { value: 'active,probation,suspended,terminated', labelKey: 'allStatuses' as const },
+const WORKFORCE = '';
+const ALL_STATUSES = 'active,probation,suspended,terminated';
+
+const STATUS_CHIPS: { value: string; icon: string; label: () => string }[] = [
+  { value: WORKFORCE, icon: '🟢', label: () => th.employees.workforceStatuses },
+  { value: 'probation', icon: '🌱', label: () => employmentStatusLabel('probation') },
+  { value: 'suspended', icon: '⏸️', label: () => employmentStatusLabel('suspended') },
+  { value: 'terminated', icon: '👋', label: () => employmentStatusLabel('terminated') },
+  { value: ALL_STATUSES, icon: '📋', label: () => th.employees.allStatuses },
 ];
+
+type SortKey = 'name' | 'nameDesc' | 'code' | 'newest' | 'tenure';
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'name', label: 'ชื่อ ก → ฮ' },
+  { value: 'nameDesc', label: 'ชื่อ ฮ → ก' },
+  { value: 'code', label: 'รหัสพนักงาน' },
+  { value: 'newest', label: 'เข้างานล่าสุดก่อน' },
+  { value: 'tenure', label: 'อายุงานมากสุดก่อน' },
+];
+
+const SORT_STORAGE_KEY = 'whq.employees.sort';
+
+function readStoredSort(): SortKey {
+  try {
+    const v = localStorage.getItem(SORT_STORAGE_KEY);
+    if (v && SORT_OPTIONS.some((o) => o.value === v)) return v as SortKey;
+  } catch { /* storage unavailable */ }
+  return 'name';
+}
+
+const fullName = (e: EmployeeListItem) => `${e.firstName} ${e.lastName}`.trim();
+const hireTime = (e: EmployeeListItem) => (e.hireDate ? Date.parse(e.hireDate) || 0 : 0);
+
+function sortEmployees(items: EmployeeListItem[], key: SortKey): EmployeeListItem[] {
+  const byName = (a: EmployeeListItem, b: EmployeeListItem) => fullName(a).localeCompare(fullName(b), 'th');
+  const sorted = [...items];
+  switch (key) {
+    case 'nameDesc': return sorted.sort((a, b) => byName(b, a));
+    case 'code': return sorted.sort((a, b) => a.globalId.localeCompare(b.globalId, undefined, { numeric: true }));
+    case 'newest': return sorted.sort((a, b) => hireTime(b) - hireTime(a) || byName(a, b));
+    // Missing hire dates go last rather than counting as the longest tenure.
+    case 'tenure': return sorted.sort((a, b) => (hireTime(a) || Infinity) - (hireTime(b) || Infinity) || byName(a, b));
+    case 'name':
+    default: return sorted.sort(byName);
+  }
+}
 
 export default function EmployeesPage() {
   const { companies, can } = useAuth();
@@ -45,8 +84,29 @@ export default function EmployeesPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(WORKFORCE);
+  const [sortKey, setSortKey] = useState<SortKey>(readStoredSort);
+
+  // Debounce so typing doesn't refetch on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const changeSort = (key: SortKey) => {
+    setSortKey(key);
+    try { localStorage.setItem(SORT_STORAGE_KEY, key); } catch { /* storage unavailable */ }
+  };
+
+  const sortedRows = useMemo(() => sortEmployees(rows, sortKey), [rows, sortKey]);
+  const hasFilters = searchInput.trim() !== '' || status !== WORKFORCE;
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setStatus(WORKFORCE);
+  };
 
   const activeCompanyId = companyId;
 
@@ -143,22 +203,63 @@ export default function EmployeesPage() {
           <WorkHQButton type="button" variant="secondary" onClick={() => void load()}>{th.employees.refresh}</WorkHQButton>
         </>
       )}
-      quickActions={invitePerms.canShowInviteButton ? (
-        <>
-          {canAdd && (
-            <WorkHQButton to="/hr/employees/new" variant="secondary">+ เพิ่มพนักงาน</WorkHQButton>
-          )}
-          <WorkHQButton to="/hr/invitation" variant="secondary">🔗 เชิญด้วยลิงก์</WorkHQButton>
-        </>
-      ) : (canAdd ? (
-        <WorkHQButton to="/hr/employees/new" variant="secondary">+ เพิ่มพนักงาน</WorkHQButton>
-      ) : undefined)}
     >
+      {/* Rendered outside the page state so a no-match search doesn't hide the filters. */}
+      {canRead && (
+        <WorkHQFilterToolbar>
+          <div className="whq-employee-filters">
+            <div className="whq-employee-filters__row">
+              <WorkHQField label={th.employees.search}>
+                <WorkHQInput
+                  type="search"
+                  placeholder={th.employees.searchPlaceholder}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+              </WorkHQField>
+              <WorkHQField label="เรียงตาม">
+                <WorkHQSelect value={sortKey} onChange={(e) => changeSort(e.target.value as SortKey)}>
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </WorkHQSelect>
+              </WorkHQField>
+            </div>
+            <div className="whq-employee-filters__status" role="radiogroup" aria-label={th.employees.status}>
+              <span className="whq-employee-filters__label">{th.employees.status}</span>
+              {STATUS_CHIPS.map((chip) => (
+                <button
+                  key={chip.value || 'workforce'}
+                  type="button"
+                  role="radio"
+                  aria-checked={status === chip.value}
+                  className={`whq-filter-chip${status === chip.value ? ' whq-filter-chip--active' : ''}`}
+                  onClick={() => setStatus(chip.value)}
+                >
+                  <span aria-hidden="true">{chip.icon}</span> {chip.label()}
+                </button>
+              ))}
+              {hasFilters && (
+                <button type="button" className="whq-filter-clear" onClick={clearFilters}>
+                  ✕ ล้างตัวกรอง
+                </button>
+              )}
+            </div>
+          </div>
+        </WorkHQFilterToolbar>
+      )}
       <WorkHQPageState
         state={pageState}
         permissionDenied={<WorkHQPermissionDenied />}
         error={<WorkHQErrorState referenceCode={referenceCode} onRetry={() => void load()} />}
-        empty={(
+        empty={hasFilters ? (
+          <WorkHQEmptyState
+            icon="🔍"
+            title={th.employees.noResults}
+            description="ลองเปลี่ยนคำค้นหาหรือสถานะดูนะ"
+            action={<WorkHQButton type="button" variant="secondary" onClick={clearFilters}>ล้างตัวกรอง</WorkHQButton>}
+          />
+        ) : (
           <WorkHQEmptyState
             icon="👥"
             title="ยังไม่มีพนักงานในบริษัทนี้"
@@ -176,30 +277,8 @@ export default function EmployeesPage() {
           />
         )}
       >
-        <WorkHQFilterToolbar>
-          <WorkHQField label={th.employees.search}>
-            <WorkHQInput
-              type="search"
-              placeholder={th.employees.searchPlaceholder}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </WorkHQField>
-          <WorkHQField label={th.employees.status}>
-            <WorkHQSelect value={status} onChange={(e) => setStatus(e.target.value)}>
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value || 'workforce'} value={opt.value}>
-                  {'labelKey' in opt && opt.labelKey
-                    ? th.employees[opt.labelKey]
-                    : employmentStatusLabel('label' in opt ? opt.label! : 'active')}
-                </option>
-              ))}
-            </WorkHQSelect>
-          </WorkHQField>
-        </WorkHQFilterToolbar>
-
         <div className="whq-employee-grid">
-          {rows.map((row) => (
+          {sortedRows.map((row) => (
             <Link key={row.id} to={`/hr/employees/${row.id}`} className="whq-employee-grid-link">
               <WorkHQEmployeeCard employee={row} />
             </Link>

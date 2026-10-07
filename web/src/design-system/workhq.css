@@ -4906,3 +4906,72 @@ button.whq-employee-metric-chip--lavender {
   }
   .whq-payroll-step:nth-child(2) { border-right: none; }
 }
+
+/* ── Employee list filters (search + sort + status chips) ── */
+.whq-filter-toolbar:has(> .whq-employee-filters) {
+  display: block;
+}
+.whq-employee-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.whq-employee-filters__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  gap: 0.85rem;
+}
+@media (max-width: 640px) {
+  .whq-employee-filters__row { grid-template-columns: minmax(0, 1fr); }
+}
+.whq-employee-filters__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.whq-employee-filters__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--whq-text-muted);
+  margin-right: 0.25rem;
+}
+.whq-filter-chip {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--whq-radius-full);
+  border: 1.5px solid var(--whq-border);
+  background: var(--whq-bg-subtle);
+  color: var(--whq-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s var(--whq-ease), border-color 0.15s var(--whq-ease), color 0.15s var(--whq-ease);
+}
+.whq-filter-chip:hover {
+  border-color: var(--whq-border-strong);
+  background: var(--whq-bg-elevated);
+}
+.whq-filter-chip:focus-visible,
+.whq-filter-clear:focus-visible {
+  outline: 2px solid var(--whq-border-focus);
+  outline-offset: 2px;
+}
+.whq-filter-chip--active,
+.whq-filter-chip--active:hover {
+  background: var(--whq-primary-subtle);
+  border-color: var(--whq-primary);
+  color: var(--whq-primary-text);
+  font-weight: 600;
+}
+.whq-filter-clear {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  background: none;
+  color: var(--whq-text-link);
+  cursor: pointer;
+  margin-left: auto;
+}
+.whq-filter-clear:hover { text-decoration: underline; }
