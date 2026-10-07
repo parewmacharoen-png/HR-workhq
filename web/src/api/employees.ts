@@ -81,7 +81,10 @@ export interface EmployeeListFilters {
 export interface OnboardCompanyAssignment {
   companyId: string;
   department?: string;
+  /** Primary team in this company. */
   teamId?: string;
+  /** Further teams the employee also works in within this company. */
+  extraTeamIds?: string[];
 }
 
 export interface OnboardEmployeeInput {

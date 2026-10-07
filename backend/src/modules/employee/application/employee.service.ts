@@ -44,6 +44,7 @@ import { qualifiesForSharedPayroll } from '../../payroll/domain/services/shared-
 import { resolveInitialSalaryEffectiveDate } from '../../payroll/domain/services/salary-band-employment.util';
 import { resolveInitialEmploymentFromType } from '../../employee-onboarding/domain/employment-preset.util';
 import { ShiftAssignmentService } from '../../attendance/application/shift-assignment.service';
+import { extraTeamIdsFor } from '../domain/services/company-teams.util';
 
 @Injectable()
 export class EmployeeService {
@@ -111,7 +112,12 @@ export class EmployeeService {
 
     const extraCompanyIds = (dto.additionalCompanyIds ?? [])
       .filter((cid) => cid && cid !== dto.companyId);
-    const assignmentRows: Array<{ companyId: string; department?: string; teamId?: string }> = dto.companyAssignments?.length
+    const assignmentRows: Array<{
+      companyId: string;
+      department?: string;
+      teamId?: string;
+      extraTeamIds?: string[];
+    }> = dto.companyAssignments?.length
       ? dto.companyAssignments
       : [
           {
@@ -131,9 +137,16 @@ export class EmployeeService {
         effectiveFrom: dto.startDate,
         isPrimaryCompany: isPrimary,
         teamId: row.teamId,
-        isPrimaryTeam: isPrimary && Boolean(row.teamId),
+        isPrimaryTeam: Boolean(row.teamId),
       });
       if (isPrimary) primaryAssignmentId = assignment.id;
+      for (const extraTeamId of extraTeamIdsFor(row)) {
+        await this.createAssignment(actor, employee.id, {
+          companyId: row.companyId,
+          effectiveFrom: dto.startDate,
+          teamId: extraTeamId,
+        });
+      }
     }
 
     const assignment = { id: primaryAssignmentId ?? '' };
@@ -209,11 +222,11 @@ export class EmployeeService {
       }
     }
 
-    for (const row of assignmentRows) {
+    for (const shiftCompanyId of new Set(assignmentRows.map((row) => row.companyId))) {
       await this.shiftAssignments.ensureDefaultDayShiftIfUnassigned(
         actor,
         employee.id,
-        row.companyId,
+        shiftCompanyId,
         dto.startDate,
       ).catch(() => undefined);
     }
@@ -474,7 +487,7 @@ export class EmployeeService {
         // the full set becomes the per-person company badges.
         assignments: {
           where: { effectiveTo: null, deletedAt: null },
-          orderBy: [{ isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
+          orderBy: [{ isPrimaryCompany: 'desc' }, { isPrimaryTeam: 'desc' }, { effectiveFrom: 'asc' }],
           include: {
             team: { select: { name: true } },
             company: { select: { id: true, code: true, name: true } },
@@ -614,18 +627,32 @@ export class EmployeeService {
     const employee = await this.employees.findById(employeeId);
     if (!employee) throw new EmployeeNotFoundError(employeeId);
 
-    // prevent duplicate current assignment in the same company
+    // an employee may sit in several teams of one company, but not twice in the same team
     const currentInCompany = await this.assignments.findCurrentForCompany(employeeId, dto.companyId);
-    if (currentInCompany.length > 0) throw new OverlappingAssignmentError();
+    const teamId = dto.teamId ?? null;
+    if (currentInCompany.some((row) => row.teamId === teamId)) throw new OverlappingAssignmentError();
 
     const effectiveFrom = new Date(dto.effectiveFrom);
 
-    // if this becomes the primary company, close the previous primary first
-    if (dto.isPrimaryCompany) {
+    // if this becomes the primary company, close the previous primary first —
+    // unless the previous primary is in this same company (this is just another team there)
+    let isPrimaryCompany = dto.isPrimaryCompany ?? false;
+    if (isPrimaryCompany) {
       const priorPrimary = await this.assignments.findCurrentPrimaryCompany(employeeId);
-      if (priorPrimary) {
+      if (priorPrimary?.companyId === dto.companyId) {
+        isPrimaryCompany = false;
+      } else if (priorPrimary) {
         priorPrimary.close(effectiveFrom);
         await this.assignments.save(priorPrimary, actor.userId);
+      }
+    }
+
+    // one primary team per company (uq_assign_primary_team)
+    if (dto.isPrimaryTeam) {
+      for (const row of currentInCompany) {
+        if (!row.isPrimaryTeam) continue;
+        row.setPrimaryTeam(false);
+        await this.assignments.save(row, actor.userId);
       }
     }
 
@@ -634,10 +661,10 @@ export class EmployeeService {
       employeeId,
       companyId: dto.companyId,
       effectiveFrom,
-      teamId: dto.teamId ?? null,
+      teamId,
       functionId: dto.functionId ?? null,
       roleLevel: dto.roleLevel ?? 'employee',
-      isPrimaryCompany: dto.isPrimaryCompany ?? false,
+      isPrimaryCompany,
       isPrimaryTeam: dto.isPrimaryTeam ?? false,
     });
     await this.assignments.save(assignment, actor.userId);

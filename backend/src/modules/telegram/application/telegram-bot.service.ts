@@ -1604,7 +1604,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     }
     const row = await this.prisma.employee.findUnique({
       where: { id: emp.employeeId },
-      include: { assignments: { where: { effectiveTo: null }, include: { company: true, team: true } } },
+      include: {
+        assignments: {
+          where: { effectiveTo: null, deletedAt: null },
+          orderBy: [{ isPrimaryCompany: 'desc' }, { isPrimaryTeam: 'desc' }, { effectiveFrom: 'asc' }],
+          include: { company: true, team: true },
+        },
+      },
     });
     if (!row) {
       await this.gateway.sendMessage({ chatId, text: 'ไม่พบข้อมูลพนักงาน' });

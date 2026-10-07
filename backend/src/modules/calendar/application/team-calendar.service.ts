@@ -162,6 +162,7 @@ export class TeamCalendarService {
     for (const s of swapRows) {
       const assignment = await this.prisma.employeeAssignment.findFirst({
         where: { employeeId: s.requesterEmployeeId, effectiveTo: null, deletedAt: null },
+        orderBy: [{ isPrimaryCompany: 'desc' }, { isPrimaryTeam: 'desc' }, { effectiveFrom: 'asc' }],
         include: { team: { select: { id: true, name: true, companyId: true } } },
       });
       if (!assignment || !companyFilter.includes(assignment.companyId)) continue;

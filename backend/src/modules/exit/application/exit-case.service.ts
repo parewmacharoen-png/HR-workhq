@@ -187,6 +187,7 @@ export class ExitCaseService {
   private async resolveBigLeaderUserIds(employeeId: string, companyId: string): Promise<string[]> {
     const assignment = await this.prisma.employeeAssignment.findFirst({
       where: { employeeId, teamId: { not: null }, effectiveTo: null, deletedAt: null },
+      orderBy: [{ isPrimaryTeam: 'desc' }, { isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
       select: { teamId: true },
     });
     if (!assignment?.teamId) return [];

@@ -33,6 +33,8 @@ export interface EmployeeCompanyAssignment {
   teamId: string | null;
   teamName: string | null;
   isPrimary: boolean;
+  /** One row per (company, team); the primary team's row in each company has this set. */
+  isPrimaryTeam?: boolean;
 }
 
 export interface EmployeeEmploymentResponse {
@@ -54,6 +56,7 @@ export type UpdateEmployeeEmploymentPayload = {
   companyAssignments?: Array<{
     companyId: string;
     teamId?: string | null;
+    extraTeamIds?: string[];
     department?: string;
   }>;
   department?: string;

@@ -4,7 +4,8 @@ import { EMPLOYEE_DEPARTMENT_OPTIONS, EMPLOYEE_POSITION_OPTIONS } from '../../li
 import { NO_DATA } from '../../lib/employee-date-utils';
 import { WorkHQField, WorkHQSelect } from '../ui';
 
-export type CompanyOrgSelection = { department: string; teamId: string };
+/** `teamId` is the primary team in the company; `extraTeamIds` are further teams there. */
+export type CompanyOrgSelection = { department: string; teamId: string; extraTeamIds?: string[] };
 
 interface CompanyOption {
   id: string;
@@ -19,6 +20,8 @@ interface EmployeePerCompanyOrgFieldsProps {
   onChange: (companyId: string, patch: Partial<CompanyOrgSelection>) => void;
   position?: string;
   onPositionChange?: (value: string) => void;
+  /** Show "other teams in this company" checkboxes (needs a save path that sends extraTeamIds). */
+  allowMultipleTeams?: boolean;
 }
 
 function companyLabel(c: CompanyOption | undefined, id: string): string {
@@ -33,8 +36,11 @@ export function EmployeePerCompanyOrgFields({
   onChange,
   position,
   onPositionChange,
+  allowMultipleTeams = false,
 }: EmployeePerCompanyOrgFieldsProps) {
   const [teamsByCompany, setTeamsByCompany] = useState<Record<string, Array<{ id: string; name: string }>>>({});
+  // Extra teams may sit in another department, so they are picked from every team in the company.
+  const [allTeamsByCompany, setAllTeamsByCompany] = useState<Record<string, Array<{ id: string; name: string }>>>({});
   const companyIdsKey = companyIds.join(',');
   const orgKey = companyIds.map((cid) => `${cid}:${value[cid]?.department ?? ''}`).join('|');
 
@@ -55,6 +61,19 @@ export function EmployeePerCompanyOrgFields({
     });
   }, [companyIdsKey, orgKey, companyIds]);
 
+  useEffect(() => {
+    if (!allowMultipleTeams || !companyIds.length) return;
+    void Promise.all(
+      companyIds.map(async (cid) => ({ cid, rows: await fetchCompanyTeams(cid).catch(() => []) })),
+    ).then((results) => {
+      setAllTeamsByCompany((prev) => {
+        const next = { ...prev };
+        for (const row of results) next[row.cid] = row.rows;
+        return next;
+      });
+    });
+  }, [allowMultipleTeams, companyIdsKey]);
+
   const multiCompany = companyIds.length > 1;
   const sectionLabel = multiCompany ? 'แผนก / ทีม (ต่อบริษัท)' : 'แผนก / ทีม';
 
@@ -69,6 +88,8 @@ export function EmployeePerCompanyOrgFields({
         const c = companies.find((row) => row.id === cid);
         const org = value[cid] ?? { department: '', teamId: '' };
         const teams = teamsByCompany[cid] ?? [];
+        const extraTeamIds = org.extraTeamIds ?? [];
+        const extraTeamOptions = (allTeamsByCompany[cid] ?? []).filter((team) => team.id !== org.teamId);
         return (
           <div
             key={cid}
@@ -105,6 +126,26 @@ export function EmployeePerCompanyOrgFields({
                 </WorkHQSelect>
               </WorkHQField>
             </div>
+            {allowMultipleTeams && org.teamId && extraTeamOptions.length > 0 ? (
+              <WorkHQField label="ทีมอื่นในบริษัทนี้ (ถ้าทำหลายทีม)">
+                <div className="whq-checkbox-group whq-checkbox-group--inline">
+                  {extraTeamOptions.map((team) => (
+                    <label key={team.id} className="whq-checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={extraTeamIds.includes(team.id)}
+                        onChange={(e) => onChange(cid, {
+                          extraTeamIds: e.target.checked
+                            ? [...extraTeamIds, team.id]
+                            : extraTeamIds.filter((id) => id !== team.id),
+                        })}
+                      />
+                      <span>{team.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </WorkHQField>
+            ) : null}
           </div>
         );
       })}

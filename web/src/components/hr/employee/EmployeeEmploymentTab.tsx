@@ -70,13 +70,32 @@ function buildCompanyOrgState(
         }]
       : [];
   const department = employment.employment.department ?? '';
-  return {
-    companyIds: rows.map((row) => row.companyId),
-    orgById: Object.fromEntries(rows.map((row) => [
-      row.companyId,
-      { department, teamId: row.teamId ?? '' },
-    ])),
-  };
+  const orgById: Record<string, CompanyOrgSelection> = {};
+  for (const row of groupAssignmentsByCompany(rows)) {
+    orgById[row.companyId] = {
+      department,
+      teamId: row.primaryTeam?.teamId ?? '',
+      extraTeamIds: row.extraTeams.map((team) => team.teamId!),
+    };
+  }
+  return { companyIds: Object.keys(orgById), orgById };
+}
+
+/** Rows come one per (company, team); fold them into one entry per company, primary team first. */
+function groupAssignmentsByCompany(rows: EmployeeCompanyAssignment[]) {
+  const byCompany = new Map<string, EmployeeCompanyAssignment[]>();
+  for (const row of rows) byCompany.set(row.companyId, [...(byCompany.get(row.companyId) ?? []), row]);
+  return [...byCompany.values()].map((companyRows) => {
+    const teamRows = companyRows.filter((row) => row.teamId);
+    const primaryTeam = teamRows.find((row) => row.isPrimaryTeam) ?? teamRows[0] ?? null;
+    return {
+      companyId: companyRows[0].companyId,
+      companyName: companyRows[0].companyName,
+      isPrimary: companyRows.some((row) => row.isPrimary),
+      primaryTeam,
+      extraTeams: teamRows.filter((row) => row !== primaryTeam),
+    };
+  });
 }
 
 function companyAssignmentsLabel(
@@ -84,8 +103,11 @@ function companyAssignmentsLabel(
   fallbackName: string | null,
 ): string {
   if (rows?.length) {
-    return rows.map((row) => {
-      const team = row.teamName ? ` · ${row.teamName.replace(/^Team /, 'ทีม ')}` : '';
+    return groupAssignmentsByCompany(rows).map((row) => {
+      const teamNames = [row.primaryTeam, ...row.extraTeams]
+        .filter((team) => team?.teamName)
+        .map((team) => team!.teamName!.replace(/^Team /, 'ทีม '));
+      const team = teamNames.length ? ` · ${teamNames.join(', ')}` : '';
       const primary = row.isPrimary ? ' (หลัก)' : '';
       return `${row.companyName}${primary}${team}`;
     }).join(' · ');
@@ -321,11 +343,17 @@ export function EmployeeEmploymentTab({
     setSaveError(null);
     try {
       const primaryOrg = companyOrgById[primaryCompanyId];
-      const companyAssignments = orderedActiveCompanyIds.map((cid) => ({
-        companyId: cid,
-        department: companyOrgById[cid]?.department || undefined,
-        teamId: companyOrgById[cid]?.teamId || null,
-      }));
+      const companyAssignments = orderedActiveCompanyIds.map((cid) => {
+        const org = companyOrgById[cid];
+        const teamId = org?.teamId || null;
+        return {
+          companyId: cid,
+          department: org?.department || undefined,
+          teamId,
+          // always sent, so un-ticking a team removes it
+          extraTeamIds: teamId ? (org?.extraTeamIds ?? []).filter((id) => id !== teamId) : [],
+        };
+      });
       const updated = await updateEmployeeEmployment(employeeId, {
         companyAssignments,
         department: primaryOrg?.department || form.department || undefined,
@@ -464,6 +492,7 @@ export function EmployeeEmploymentTab({
                       onChange={updateCompanyOrg}
                       position={form.position ?? ''}
                       onPositionChange={(v) => updateField('position', v || null)}
+                      allowMultipleTeams
                     />
                   </>
                 ) : (

@@ -59,6 +59,13 @@ export class EmployeeAssignment {
   get companyId(): string { return this.props.companyId; }
   get isCurrent(): boolean { return this.props.effectiveTo === null; }
   get isPrimaryCompany(): boolean { return this.props.isPrimaryCompany; }
+  get teamId(): string | null { return this.props.teamId; }
+  get isPrimaryTeam(): boolean { return this.props.isPrimaryTeam; }
+
+  /** Only the caller knows which row in the company is the primary team. */
+  setPrimaryTeam(isPrimaryTeam: boolean): void {
+    this.props.isPrimaryTeam = isPrimaryTeam;
+  }
 
   close(effectiveTo: Date): void {
     if (effectiveTo < this.props.effectiveFrom) {

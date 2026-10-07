@@ -623,6 +623,7 @@ export class EmployeeSelfOnboardingService {
       const targetCompanyId = row.companyId ?? companyId;
       const assignment = await this.prisma.employeeAssignment.findFirst({
         where: { employeeId, companyId: targetCompanyId, effectiveTo: null, deletedAt: null },
+        orderBy: [{ isPrimaryTeam: 'desc' }, { isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
       });
       if (assignment) {
         await this.prisma.employeeAssignment.update({

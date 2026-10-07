@@ -78,6 +78,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://workhq:workhq@postgres:5432/workhq
+      DIRECT_URL:   postgresql://workhq:workhq@postgres:5432/workhq
 
   # ── WorkHQ API (NestJS) ───────────────────────────────────────────────────
   api:
@@ -100,6 +101,7 @@ services:
       NODE_ENV:     development
       PORT:         3000
       DATABASE_URL: postgresql://workhq:workhq@postgres:5432/workhq
+      DIRECT_URL:   postgresql://workhq:workhq@postgres:5432/workhq
       REDIS_URL:    redis://redis:6379
       DOCUMENT_STORAGE_BASE_PATH: /var/workhq/storage/documents
     volumes:

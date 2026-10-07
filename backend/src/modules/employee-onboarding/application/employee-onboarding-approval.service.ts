@@ -405,7 +405,7 @@ export class EmployeeOnboardingApprovalService {
 
       const assignment = await tx.employeeAssignment.findFirst({
         where: { employeeId, companyId: targetCompanyId, effectiveTo: null, deletedAt: null },
-        orderBy: { effectiveFrom: 'desc' },
+        orderBy: [{ isPrimaryTeam: 'desc' }, { effectiveFrom: 'desc' }],
       });
 
       if (assignment) {

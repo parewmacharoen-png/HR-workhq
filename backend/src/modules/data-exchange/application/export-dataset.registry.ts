@@ -30,6 +30,7 @@ export class EmployeeExportProvider {
       include: {
         assignments: {
           where: { companyId: params.companyId, effectiveTo: null, deletedAt: null },
+          orderBy: [{ isPrimaryTeam: 'desc' }, { isPrimaryCompany: 'desc' }, { effectiveFrom: 'asc' }],
           take: 1,
           include: { team: true, company: true },
         },

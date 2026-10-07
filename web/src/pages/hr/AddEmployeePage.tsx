@@ -122,6 +122,7 @@ export default function AddEmployeePage() {
       [cid]: {
         department: patch.department ?? prev[cid]?.department ?? '',
         teamId: patch.department !== undefined ? '' : (patch.teamId ?? prev[cid]?.teamId ?? ''),
+        extraTeamIds: patch.extraTeamIds ?? prev[cid]?.extraTeamIds ?? [],
       },
     }));
   }
@@ -171,11 +172,17 @@ export default function AddEmployeePage() {
     setError('');
     try {
       const primaryOrg = companyOrgById[companyId];
-      const companyAssignments = activeCompanyIds.map((cid) => ({
-        companyId: cid,
-        department: companyOrgById[cid]?.department || undefined,
-        teamId: companyOrgById[cid]?.teamId || undefined,
-      }));
+      const companyAssignments = activeCompanyIds.map((cid) => {
+        const org = companyOrgById[cid];
+        const teamId = org?.teamId || undefined;
+        const extraTeamIds = teamId ? (org?.extraTeamIds ?? []).filter((id) => id !== teamId) : [];
+        return {
+          companyId: cid,
+          department: org?.department || undefined,
+          teamId,
+          extraTeamIds: extraTeamIds.length ? extraTeamIds : undefined,
+        };
+      });
       const created = await onboardEmployee({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -309,6 +316,7 @@ export default function AddEmployeePage() {
             onChange={updateCompanyOrg}
             position={position}
             onPositionChange={setPosition}
+            allowMultipleTeams
           />
           <div className="whq-form-row">
             <WorkHQField label={th.addEmployee.employmentType}>
