@@ -10,6 +10,7 @@ export type AdminCommissionOfficeType = 'front_office' | 'back_office';
 const SHARED_DEPARTMENTS = new Set([
   'Admin',
   'เลขา',
+  'ออดิท',
   'HR',
   'Finance',
   'Hr',
@@ -19,6 +20,7 @@ const SHARED_DEPARTMENTS = new Set([
 const SHARED_POSITIONS = new Set([
   'แอดมิน',
   'เลขา',
+  'ออดิท',
   'Telesales',
   'เทเรเซล',
   'telesales',

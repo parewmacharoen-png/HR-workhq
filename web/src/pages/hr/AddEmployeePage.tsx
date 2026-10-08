@@ -2,6 +2,10 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiGet, ApiError, fetchCompanies, type CompanyOption } from '../../api/client';
 import { onboardEmployee } from '../../api/employees';
+import { fetchCompanyTeams } from '../../api/employee-employment';
+import { EMPLOYEE_POSITION_OPTIONS } from '../../lib/employee-org-options';
+import { NO_DATA } from '../../lib/employee-date-utils';
+import { applyPositionToOrg, positionOrgRule, resolveTeamsForSave } from '../../lib/position-org-rules';
 import { useCompanyId } from '../../context/AuthContext';
 import { useCanAddEmployee } from '../../hooks/useEmployeePermissions';
 import { useInvalidFields } from '../../hooks/useInvalidFields';
@@ -95,8 +99,8 @@ export default function AddEmployeePage() {
 
   const isSharedPayroll = useMemo(() => {
     const primaryDept = companyOrgById[companyId]?.department ?? '';
-    const SHARED_DEPTS = ['Admin', 'เลขา', 'HR', 'Finance'];
-    const SHARED_POSITIONS = ['แอดมิน', 'เลขา', 'Telesales', 'เทเรเซล', 'telesales'];
+    const SHARED_DEPTS = ['Admin', 'เลขา', 'ออดิท', 'HR', 'Finance'];
+    const SHARED_POSITIONS = ['แอดมิน', 'เลขา', 'ออดิท', 'Telesales', 'เทเรเซล', 'telesales'];
     const SHARED_ROLES = ['secretary', 'admin', 'admin_manager'];
     if (primaryDept === 'Marketing' && businessRole !== 'secretary') return false;
     if (SHARED_ROLES.includes(businessRole)) return true;
@@ -166,6 +170,25 @@ export default function AddEmployeePage() {
     },
   };
 
+  const positionRule = positionOrgRule(position);
+
+  // The position decides the department, the teams to pick, the companies and the login role.
+  function changePosition(next: string) {
+    setPosition(next);
+    const rule = positionOrgRule(next);
+    let ids = activeCompanyIds;
+    if (rule.allCompanies && companies.length) {
+      const primary = companyId || companies[0].id;
+      ids = [primary, ...companies.map((c) => c.id).filter((id) => id !== primary)];
+      setCompanyId(primary);
+      setAdditionalCompanyIds(ids.slice(1));
+    }
+    setCompanyOrgById((prev) => applyPositionToOrg(rule, ids, prev));
+    if (rule.businessRole && templates.some((t) => t.code === rule.businessRole)) {
+      setBusinessRole(rule.businessRole);
+    }
+  }
+
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -210,9 +233,18 @@ export default function AddEmployeePage() {
     setSaving(true);
     setError('');
     try {
-      const primaryOrg = companyOrgById[companyId];
+      // หัวหน้าทีมใหญ่ covers every team in each company, so all of them are assigned.
+      const resolved = await resolveTeamsForSave(positionRule, activeCompanyIds, companyOrgById, fetchCompanyTeams);
+      const orgFor = (cid: string): CompanyOrgSelection => resolved[cid] ?? { department: '', teamId: '' };
+      const primaryOrg = orgFor(companyId);
+      const pickedTeamIds = activeCompanyIds.flatMap((cid) => {
+        const org = orgFor(cid);
+        return [org.teamId, ...(org.extraTeamIds ?? [])].filter(Boolean);
+      });
+      // When the login role came from the position, its scope follows the form too.
+      const roleFromPosition = positionRule.businessRole === businessRole;
       const companyAssignments = activeCompanyIds.map((cid) => {
-        const org = companyOrgById[cid];
+        const org = orgFor(cid);
         const teamId = org?.teamId || undefined;
         const extraTeamIds = teamId ? (org?.extraTeamIds ?? []).filter((id) => id !== teamId) : [];
         return {
@@ -245,8 +277,12 @@ export default function AddEmployeePage() {
         username: createLogin ? (username.trim() || phone.trim() || undefined) : undefined,
         password: createLogin ? password : undefined,
         businessRole: createLogin ? businessRole : undefined,
-        companyScopeIds: template?.requiresCompanyScope ? companyScopeIds : [],
-        teamScopeIds: template?.requiresTeamScope ? teamScopeIds : [],
+        companyScopeIds: template?.requiresCompanyScope
+          ? (roleFromPosition ? activeCompanyIds : companyScopeIds)
+          : [],
+        teamScopeIds: template?.requiresTeamScope
+          ? (roleFromPosition ? pickedTeamIds : teamScopeIds)
+          : [],
       });
       navigate(`/hr/employees/${created.id}`, {
         replace: true,
@@ -325,6 +361,14 @@ export default function AddEmployeePage() {
                 onValidityChange={(ok) => reportDateValidity('startDate', ok)}
               />
             </WorkHQField>
+            <WorkHQField label="ตำแหน่ง (เลือกก่อน)">
+              <WorkHQSelect value={position} onChange={(e) => changePosition(e.target.value)}>
+                <option value="">{NO_DATA}</option>
+                {EMPLOYEE_POSITION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </WorkHQSelect>
+            </WorkHQField>
           </div>
 
           <EmployeePerCompanyOrgFields
@@ -332,8 +376,9 @@ export default function AddEmployeePage() {
             companies={companies}
             value={companyOrgById}
             onChange={updateCompanyOrg}
-            position={position}
-            onPositionChange={setPosition}
+            teamsMode={positionRule.teams}
+            departmentLocked={positionRule.department !== null}
+            companiesLocked={positionRule.allCompanies}
             allowMultipleTeams
             companyRows={companyRows}
           />

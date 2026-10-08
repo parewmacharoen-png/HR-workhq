@@ -3,6 +3,7 @@ export const EMPLOYEE_DEPARTMENT_OPTIONS = [
   { value: 'Marketing', label: 'Marketing' },
   { value: 'Admin', label: 'Admin' },
   { value: 'เลขา', label: 'เลขา' },
+  { value: 'ออดิท', label: 'ออดิท' },
 ] as const;
 
 /** Standard position options — HR-facing job titles. */
