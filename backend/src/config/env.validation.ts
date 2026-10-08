@@ -33,7 +33,7 @@ export class EnvVars {
   JWT_SECRET!: string;
 
   @IsString()
-  JWT_ACCESS_TTL = '15m';
+  JWT_ACCESS_TTL = '8h';
 
   @IsString()
   JWT_REFRESH_TTL = '30d';

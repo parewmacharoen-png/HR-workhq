@@ -38,6 +38,13 @@ export class AuthController {
   }
 
   @SkipPasswordChange()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post('refresh')
+  refresh(@Req() req: { user: AuthenticatedUser }) {
+    return this.auth.refresh(req.user);
+  }
+
+  @SkipPasswordChange()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('change-password')
   changePassword(
