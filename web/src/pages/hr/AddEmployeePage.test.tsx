@@ -13,6 +13,13 @@ const TEAMS: Record<string, Array<{ id: string; name: string }>> = {
   'co-mb': [{ id: 'mb-t1', name: 'Team 1' }],
 };
 
+const ROLE_TEMPLATES = [
+  { code: 'employee', name: 'พนักงาน', requiresCompanyScope: false, requiresTeamScope: false },
+  { code: 'big_leader', name: 'หัวหน้าทีมใหญ่', requiresCompanyScope: true, requiresTeamScope: false },
+  { code: 'sub_leader', name: 'หัวหน้าทีมย่อย', requiresCompanyScope: false, requiresTeamScope: true },
+  { code: 'secretary', name: 'เลขา', requiresCompanyScope: false, requiresTeamScope: false },
+];
+
 vi.mock('../../context/AuthContext', () => ({
   useCompanyId: () => 'co-kw',
 }));
@@ -25,7 +32,7 @@ vi.mock('../../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../api/client')>();
   return {
     ...actual,
-    apiGet: vi.fn(async () => []),
+    apiGet: vi.fn(async (path: string) => (path === '/access-control/role-templates' ? ROLE_TEMPLATES : [])),
     fetchCompanies: vi.fn(async () => [
       { id: 'co-kw', name: 'KW Company', code: 'KW' },
       { id: 'co-sb', name: 'SB Company', code: 'SB' },
@@ -58,6 +65,23 @@ function companySelects() {
   return screen.getAllByLabelText('บริษัท') as HTMLSelectElement[];
 }
 
+function pickPosition(value: string) {
+  fireEvent.change(screen.getByLabelText('ตำแหน่ง (เลือกก่อน)'), { target: { value } });
+}
+
+async function fillWithLogin() {
+  fireEvent.change(screen.getByLabelText('ชื่อ'), { target: { value: 'Somchai' } });
+  fireEvent.change(screen.getByLabelText('นามสกุล'), { target: { value: 'Jaidee' } });
+  fireEvent.change(screen.getByPlaceholderText('11000'), { target: { value: '15000' } });
+  fireEvent.change(screen.getByPlaceholderText('อย่างน้อย 8 ตัวอักษร'), { target: { value: 'secret123' } });
+}
+
+async function submitted() {
+  fireEvent.click(screen.getByText('สร้างพนักงาน'));
+  await waitFor(() => expect(mocks.onboardEmployee).toHaveBeenCalledTimes(1));
+  return mocks.onboardEmployee.mock.calls[0][0];
+}
+
 function teamSelects() {
   return screen.getAllByLabelText('ทีม') as HTMLSelectElement[];
 }
@@ -69,48 +93,81 @@ async function fillRequired() {
   fireEvent.click(screen.getByLabelText('สร้างบัญชีเข้าใช้งาน'));
 }
 
-describe('AddEmployeePage company rows', () => {
+describe('AddEmployeePage: position decides companies and teams', () => {
   beforeEach(() => {
     mocks.onboardEmployee.mockReset();
     mocks.onboardEmployee.mockResolvedValue({ id: 'emp-1', globalId: 'EMP000001', username: null });
   });
 
-  it('lets one employee join several companies, each with its own team', async () => {
+  it('หัวหน้าทีมย่อย picks one team per company and gets sub_leader over those teams', async () => {
     renderPage();
     await screen.findByText('+ เพิ่มบริษัท');
-    expect(companySelects()).toHaveLength(1);
-    expect(companySelects()[0].value).toBe('co-kw');
-    // no team can be picked until the department is chosen
-    expect(teamSelects()[0]).toBeDisabled();
-    fireEvent.change(screen.getAllByLabelText('แผนก')[0], { target: { value: 'Marketing' } });
+    pickPosition('หัวหน้าทีมย่อย');
+    // department comes from the position
+    expect(screen.queryByLabelText('แผนก')).toBeNull();
 
     fireEvent.click(screen.getByText('+ เพิ่มบริษัท'));
-    // the new row starts with the primary row's department
-    expect((screen.getAllByLabelText('แผนก')[1] as HTMLSelectElement).value).toBe('Marketing');
-    expect(companySelects()).toHaveLength(2);
-    // the new row starts on a company not used yet, and lists no company twice
-    expect(companySelects()[1].value).toBe('co-sb');
-    fireEvent.change(companySelects()[1], { target: { value: 'co-mb' } });
-    fireEvent.change(companySelects()[1], { target: { value: 'co-sb' } });
-    const secondRowOptions = [...companySelects()[1].options].map((o) => o.value);
-    expect(secondRowOptions).not.toContain('co-kw');
-
-    await waitFor(() => expect(teamSelects()[0].options.length).toBeGreaterThan(1));
+    expect(companySelects().map((s) => s.value)).toEqual(['co-kw', 'co-sb']);
     await waitFor(() => expect(teamSelects()[1].options.length).toBeGreaterThan(1));
     fireEvent.change(teamSelects()[0], { target: { value: 'kw-t1' } });
     fireEvent.change(teamSelects()[1], { target: { value: 'sb-t3' } });
 
-    await fillRequired();
-    fireEvent.click(screen.getByText('สร้างพนักงาน'));
-
-    await waitFor(() => expect(mocks.onboardEmployee).toHaveBeenCalledTimes(1));
-    const payload = mocks.onboardEmployee.mock.calls[0][0];
-    expect(payload.companyId).toBe('co-kw');
-    expect(payload.additionalCompanyIds).toEqual(['co-sb']);
+    await fillWithLogin();
+    const payload = await submitted();
     expect(payload.companyAssignments).toEqual([
       { companyId: 'co-kw', department: 'Marketing', teamId: 'kw-t1', extraTeamIds: undefined },
       { companyId: 'co-sb', department: 'Marketing', teamId: 'sb-t3', extraTeamIds: undefined },
     ]);
+    expect(payload.position).toBe('หัวหน้าทีมย่อย');
+    expect(payload.businessRole).toBe('sub_leader');
+    expect(payload.teamScopeIds).toEqual(['kw-t1', 'sb-t3']);
+  });
+
+  it('พนักงาน can tick several teams in one company', async () => {
+    renderPage();
+    await screen.findByText('+ เพิ่มบริษัท');
+    pickPosition('พนักงาน');
+    fireEvent.click(await screen.findByLabelText('Team 2'));
+    fireEvent.click(screen.getByLabelText('Team 1'));
+
+    await fillWithLogin();
+    const payload = await submitted();
+    expect(payload.companyAssignments).toEqual([
+      { companyId: 'co-kw', department: 'Marketing', teamId: 'kw-t2', extraTeamIds: ['kw-t1'] },
+    ]);
+    expect(payload.businessRole).toBe('employee');
+  });
+
+  it('หัวหน้าทีมใหญ่ picks no team and covers every team in the company', async () => {
+    renderPage();
+    await screen.findByText('+ เพิ่มบริษัท');
+    pickPosition('หัวหน้าทีมใหญ่');
+    expect(screen.getByText('ดูแลทุกทีมในบริษัทนี้')).toBeInTheDocument();
+    expect(screen.queryAllByLabelText('ทีม')).toHaveLength(0);
+
+    await fillWithLogin();
+    const payload = await submitted();
+    expect(payload.companyAssignments).toEqual([
+      { companyId: 'co-kw', department: 'Marketing', teamId: 'kw-t1', extraTeamIds: ['kw-t2'] },
+    ]);
+    expect(payload.businessRole).toBe('big_leader');
+    expect(payload.companyScopeIds).toEqual(['co-kw']);
+  });
+
+  it('เลขา works for every company with no team', async () => {
+    renderPage();
+    await screen.findByText('+ เพิ่มบริษัท');
+    pickPosition('เลขา');
+    expect(companySelects().map((s) => s.value)).toEqual(['co-kw', 'co-sb', 'co-mb']);
+    expect(screen.queryByText('+ เพิ่มบริษัท')).toBeNull();
+    expect(screen.queryByText('ลบ')).toBeNull();
+
+    await fillWithLogin();
+    const payload = await submitted();
+    expect(payload.additionalCompanyIds).toEqual(['co-sb', 'co-mb']);
+    expect(payload.companyAssignments.map((a: { teamId?: string }) => a.teamId)).toEqual([undefined, undefined, undefined]);
+    expect(payload.department).toBe('เลขา');
+    expect(payload.businessRole).toBe('secretary');
   });
 
   it('can make another row the primary company and remove a row', async () => {
@@ -119,7 +176,6 @@ describe('AddEmployeePage company rows', () => {
     fireEvent.click(screen.getByText('+ เพิ่มบริษัท'));
     fireEvent.click(screen.getByText('+ เพิ่มบริษัท'));
     expect(companySelects().map((s) => s.value)).toEqual(['co-kw', 'co-sb', 'co-mb']);
-    // every company is used, so there is nothing left to add
     expect(screen.queryByText('+ เพิ่มบริษัท')).toBeNull();
 
     fireEvent.click(screen.getAllByText('ตั้งเป็นบริษัทหลัก')[0]);
@@ -129,9 +185,7 @@ describe('AddEmployeePage company rows', () => {
     expect(companySelects().map((s) => s.value)).toEqual(['co-sb', 'co-kw']);
 
     await fillRequired();
-    fireEvent.click(screen.getByText('สร้างพนักงาน'));
-    await waitFor(() => expect(mocks.onboardEmployee).toHaveBeenCalledTimes(1));
-    const payload = mocks.onboardEmployee.mock.calls[0][0];
+    const payload = await submitted();
     expect(payload.companyId).toBe('co-sb');
     expect(payload.additionalCompanyIds).toEqual(['co-kw']);
   });

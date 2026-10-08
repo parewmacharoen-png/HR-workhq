@@ -3,6 +3,7 @@ import { ApiError } from '../../../api/client';
 import { fetchCompanies, type CompanyOption } from '../../../api/client';
 import { fetchEmployeeList } from '../../../api/employees';
 import {
+  fetchCompanyTeams,
   fetchEmployeeEmployment,
   isEmploymentRoleEditorEnabled,
   updateEmployeeEmployment,
@@ -40,6 +41,7 @@ import {
   type CompanyOrgSelection,
   type CompanyRowsEditor,
 } from '../EmployeePerCompanyOrgFields';
+import { applyPositionToOrg, positionOrgRule, resolveTeamsForSave } from '../../../lib/position-org-rules';
 import { useInvalidFields } from '../../../hooks/useInvalidFields';
 
 const EMPLOYMENT_STATUSES = ['probation', 'active', 'suspended', 'terminated'] as const;
@@ -359,14 +361,30 @@ export function EmployeeEmploymentTab({
     setSaveError(null);
   }
 
+  const positionRule = positionOrgRule(form?.position);
+
+  // Same rules as the add-employee form: the position sets department, teams and companies.
+  function changePosition(next: string) {
+    updateField('position', next || null);
+    const rule = positionOrgRule(next);
+    let ids = orderedActiveCompanyIds;
+    if (rule.allCompanies && companies.length) {
+      ids = [primaryCompanyId, ...companies.map((c) => c.id).filter((id) => id !== primaryCompanyId)];
+      setActiveCompanyIds(ids);
+    }
+    setCompanyOrgById((prev) => applyPositionToOrg(rule, ids, prev));
+    if (rule.department) setForm((f) => (f ? { ...f, department: rule.department } : f));
+  }
+
   async function saveEmployment() {
     if (!form) return;
     setSaving(true);
     setSaveError(null);
     try {
-      const primaryOrg = companyOrgById[primaryCompanyId];
+      const resolved = await resolveTeamsForSave(positionRule, orderedActiveCompanyIds, companyOrgById, fetchCompanyTeams);
+      const primaryOrg = resolved[primaryCompanyId];
       const companyAssignments = orderedActiveCompanyIds.map((cid) => {
-        const org = companyOrgById[cid];
+        const org = resolved[cid];
         const teamId = org?.teamId || null;
         return {
           companyId: cid,
@@ -493,9 +511,12 @@ export function EmployeeEmploymentTab({
                       value={companyOrgById}
                       onChange={updateCompanyOrg}
                       position={form.position ?? ''}
-                      onPositionChange={(v) => updateField('position', v || null)}
+                      onPositionChange={changePosition}
                       allowMultipleTeams
                       companyRows={companyRows}
+                      teamsMode={positionRule.teams}
+                      departmentLocked={positionRule.department !== null}
+                      companiesLocked={positionRule.allCompanies}
                     />
                   </>
                 ) : (

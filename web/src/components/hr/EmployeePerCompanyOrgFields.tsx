@@ -36,6 +36,16 @@ interface EmployeePerCompanyOrgFieldsProps {
   /** Show "other teams in this company" checkboxes (needs a save path that sends extraTeamIds). */
   allowMultipleTeams?: boolean;
   companyRows?: CompanyRowsEditor;
+  /**
+   * How teams are picked (from the position): 'none' hides the team field, 'single' is one
+   * team per company, 'multi' ticks several, 'all' covers every team so nothing is picked.
+   * Omit for the original select + "other teams" checkboxes.
+   */
+  teamsMode?: 'none' | 'single' | 'multi' | 'all';
+  /** Department comes from the position, so the department field is hidden. */
+  departmentLocked?: boolean;
+  /** Every company is used (e.g. เลขา), so rows can't be added, removed or swapped. */
+  companiesLocked?: boolean;
 }
 
 function companyLabel(c: CompanyOption | undefined, id: string): string {
@@ -52,6 +62,9 @@ export function EmployeePerCompanyOrgFields({
   onPositionChange,
   allowMultipleTeams = false,
   companyRows,
+  teamsMode,
+  departmentLocked = false,
+  companiesLocked = false,
 }: EmployeePerCompanyOrgFieldsProps) {
   const [teamsByCompany, setTeamsByCompany] = useState<Record<string, Array<{ id: string; name: string }>>>({});
   // Extra teams may sit in another department, so they are picked from every team in the company.
@@ -105,10 +118,14 @@ export function EmployeePerCompanyOrgFields({
     ? 'บริษัท / แผนก / ทีม'
     : multiCompany ? 'แผนก / ทีม (ต่อบริษัท)' : 'แผนก / ทีม';
   const unusedCompanies = companies.filter((c) => !companyIds.includes(c.id));
+  const rowsEditable = Boolean(companyRows) && !companiesLocked;
+  const showTeamSelect = teamsMode === undefined || teamsMode === 'single';
 
   return (
     <WorkHQField label={sectionLabel}>
-      {companyRows ? (
+      {companiesLocked ? (
+        <p className="whq-muted whq-text-sm whq-mb-sm">ตำแหน่งนี้ทำงานให้ทุกบริษัท ระบบใส่ให้ครบแล้ว</p>
+      ) : companyRows ? (
         <p className="whq-muted whq-text-sm whq-mb-sm">
           ทำงานหลายบริษัท ให้กด &quot;+ เพิ่มบริษัท&quot; แล้วเลือกทีมของแต่ละบริษัท เช่น KW ทีม 1, SB ทีม 3
         </p>
@@ -136,7 +153,7 @@ export function EmployeePerCompanyOrgFields({
                 <span className="whq-muted whq-text-sm" style={{ fontWeight: 600 }}>
                   {index === 0 ? 'บริษัทหลัก' : `บริษัทที่ ${index + 1}`}
                 </span>
-                {index > 0 ? (
+                {index > 0 && rowsEditable ? (
                   <span style={{ display: 'flex', gap: '0.25rem' }}>
                     {companyRows.onMakePrimary ? (
                       <WorkHQButton variant="ghost" onClick={() => companyRows.onMakePrimary?.(cid)}>
@@ -158,12 +175,14 @@ export function EmployeePerCompanyOrgFields({
                 {index === 0 ? 'บริษัทหลัก · ' : ''}{companyLabel(c, cid)}
               </div>
             ) : null}
-            <div className={companyRows ? 'whq-form-row whq-form-row--3' : 'whq-form-row'}>
+            <div
+              className={companyRows && !departmentLocked && showTeamSelect ? 'whq-form-row whq-form-row--3' : 'whq-form-row'}
+            >
               {companyRows ? (
                 <WorkHQField label="บริษัท">
                   <WorkHQSelect
                     value={cid}
-                    disabled={index === 0 && !companyRows.onMakePrimary}
+                    disabled={companiesLocked || (index === 0 && !companyRows.onMakePrimary)}
                     onChange={(e) => companyRows.onChangeCompany(cid, e.target.value)}
                   >
                     {companies
@@ -174,6 +193,7 @@ export function EmployeePerCompanyOrgFields({
                   </WorkHQSelect>
                 </WorkHQField>
               ) : null}
+              {departmentLocked ? null : (
               <WorkHQField label="แผนก">
                 <WorkHQSelect
                   value={org.department}
@@ -185,6 +205,13 @@ export function EmployeePerCompanyOrgFields({
                   ))}
                 </WorkHQSelect>
               </WorkHQField>
+              )}
+              {teamsMode === 'all' ? (
+                <WorkHQField label="ทีม">
+                  <p className="whq-muted" style={{ margin: '0.6rem 0 0' }}>ดูแลทุกทีมในบริษัทนี้</p>
+                </WorkHQField>
+              ) : null}
+              {showTeamSelect ? (
               <WorkHQField label="ทีม">
                 <WorkHQSelect
                   value={org.teamId}
@@ -210,8 +237,48 @@ export function EmployeePerCompanyOrgFields({
                   </span>
                 ) : null}
               </WorkHQField>
+              ) : null}
             </div>
-            {allowMultipleTeams && org.teamId && extraTeamOptions.length > 0 ? (
+            {teamsMode === 'multi' ? (
+              <WorkHQField label="ทีม (เลือกได้หลายทีม ทีมแรกที่ติ๊กเป็นทีมหลัก)">
+                {companyRows && !org.department ? (
+                  <p className="whq-muted">— เลือกแผนกก่อน —</p>
+                ) : teamsLoading ? (
+                  <p className="whq-muted">— กำลังโหลดทีม… —</p>
+                ) : teamLoadFailed ? (
+                  <span className="whq-field-error" role="alert">
+                    โหลดรายชื่อทีมไม่สำเร็จ{' '}
+                    <WorkHQButton variant="ghost" type="button" onClick={() => setReloadCount((n) => n + 1)}>
+                      ลองใหม่
+                    </WorkHQButton>
+                  </span>
+                ) : teams.length === 0 ? (
+                  <p className="whq-muted">— ไม่มีทีมในบริษัทนี้ —</p>
+                ) : (
+                  <div className="whq-checkbox-group whq-checkbox-group--inline">
+                    {teams.map((team) => {
+                      const picked = [org.teamId, ...extraTeamIds].filter(Boolean);
+                      return (
+                        <label key={team.id} className="whq-checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={picked.includes(team.id)}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...picked, team.id]
+                                : picked.filter((id) => id !== team.id);
+                              onChange(cid, { teamId: next[0] ?? '', extraTeamIds: next.slice(1) });
+                            }}
+                          />
+                          <span>{team.name}{org.teamId === team.id && picked.length > 1 ? ' (หลัก)' : ''}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </WorkHQField>
+            ) : null}
+            {teamsMode === undefined && allowMultipleTeams && org.teamId && extraTeamOptions.length > 0 ? (
               <WorkHQField label="ทีมอื่นในบริษัทนี้ (ถ้าทำหลายทีม)">
                 <div className="whq-checkbox-group whq-checkbox-group--inline">
                   {extraTeamOptions.map((team) => (
@@ -234,7 +301,7 @@ export function EmployeePerCompanyOrgFields({
           </div>
         );
       })}
-      {companyRows && unusedCompanies.length > 0 ? (
+      {companyRows && rowsEditable && unusedCompanies.length > 0 ? (
         <WorkHQButton variant="secondary" onClick={companyRows.onAddCompany}>
           + เพิ่มบริษัท
         </WorkHQButton>
