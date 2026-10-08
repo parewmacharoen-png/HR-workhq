@@ -13,7 +13,8 @@ describe('EmployeeEventsService access (unit)', () => {
   const prisma = {
     employee: { findMany: jest.fn().mockResolvedValue([]) },
   };
-  const service = new EmployeeEventsService(prisma as never, companyAccess as never);
+  const dates = { now: jest.fn(() => new Date('2026-06-15T00:00:00.000Z')) };
+  const service = new EmployeeEventsService(prisma as never, companyAccess as never, dates as never);
   const actor = { userId: 'user-1', impersonatorUserId: null, companyId: 'co-1' };
 
   beforeEach(() => {

@@ -25,6 +25,15 @@ describe('AttendanceService employee view', () => {
       employee: {
         findFirst: jest.fn().mockResolvedValue(overrides.employee ?? { workCategory: 'office' }),
       },
+      attendanceCorrection: {
+        // repairMiszonedCorrectionTimestamps runs first; no corrections to repair here.
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn(),
+      },
+      requestInstance: {
+        // syncApprovedPlatformTimeCorrections runs first; no approved requests here.
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       adminCommissionEmployeeProfile: {
         findFirst: jest.fn().mockResolvedValue(overrides.shift ?? { defaultShift: 'day' }),
       },
@@ -33,6 +42,8 @@ describe('AttendanceService employee view', () => {
           .mockResolvedValueOnce(overrides.todayRecord ?? null)
           .mockResolvedValue(overrides.latest ?? null),
         findMany: jest.fn()
+          // syncZeroWorkedMinutesRecords runs first; nothing to recalculate here.
+          .mockResolvedValueOnce([])
           .mockResolvedValueOnce(overrides.monthRecords ?? [])
           .mockResolvedValueOnce(overrides.historyRecords ?? []),
       },
@@ -67,10 +78,13 @@ describe('AttendanceService employee view', () => {
       {} as never,
       { assertEmployeeSelfOrCompany: jest.fn() } as never,
       { getRules: jest.fn().mockResolvedValue({ breakMinutes: 60 }) } as never,
-      {} as never,
-      {} as never,
+      {} as never, // alertService
+      {} as never, // absenceAutoWaive
+      {} as never, // correctionService
       time as never,
       { hasApprovedLeaveForEmployeeOnDate: jest.fn().mockResolvedValue(false) } as never,
+      {} as never, // shiftAssignments
+      {} as never, // hourlyRate
     );
 
     return { service, prisma };

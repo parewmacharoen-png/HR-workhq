@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { maskNationalId, maskOrReveal, maskSensitiveValue } from './employee-sensitive-fields';
 
 describe('employee-sensitive-fields', () => {

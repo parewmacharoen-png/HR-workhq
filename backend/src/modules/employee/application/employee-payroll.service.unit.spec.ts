@@ -1,6 +1,7 @@
 import { EmployeePayrollService } from './employee-payroll.service';
 import { PayrollService } from '../../payroll/application/payroll.service';
 import { PayrollBuilderService } from '../../payroll/application/payroll-builder.service';
+import { SharedPayrollService } from '../../payroll/application/shared-payroll.service';
 
 describe('EmployeePayrollService', () => {
   const actor = { userId: 'u-1', impersonatorUserId: null, companyId: 'co-1' };
@@ -53,6 +54,7 @@ describe('EmployeePayrollService', () => {
       employeeAccess as never,
       salaryVisibility as never,
       payrollBuilder as unknown as PayrollBuilderService,
+      { getEmployeeInfo: jest.fn(), listActiveCompanyIds: jest.fn() } as unknown as SharedPayrollService,
     );
 
     const result = await service.getPayroll(actor, 'emp-1', 'co-1');
@@ -69,16 +71,50 @@ describe('EmployeePayrollService', () => {
     const payrollBuilder = {
       syncEmployeeInOpenCycles: jest.fn().mockResolvedValue({ cyclesSynced: 1, warnings: [] }),
     };
+    const sharedPayroll = {
+      getEmployeeInfo: jest.fn().mockResolvedValue({ mode: 'standard' }),
+      listActiveCompanyIds: jest.fn(),
+    };
     const service = new EmployeePayrollService(
       payrollService as unknown as PayrollService,
       employeeAccess as never,
       salaryVisibility as never,
       payrollBuilder as unknown as PayrollBuilderService,
+      sharedPayroll as unknown as SharedPayrollService,
     );
 
     const result = await service.syncOpenCycleItems(actor, 'emp-1', 'co-1');
     expect(salaryVisibility.assertCanViewSalary).toHaveBeenCalledWith('u-1', 'emp-1');
+    expect(sharedPayroll.getEmployeeInfo).toHaveBeenCalledWith('emp-1');
+    expect(sharedPayroll.listActiveCompanyIds).not.toHaveBeenCalled();
     expect(payrollBuilder.syncEmployeeInOpenCycles).toHaveBeenCalledWith(actor, 'emp-1', 'co-1');
     expect(result.cyclesSynced).toBe(1);
+  });
+
+  it('syncOpenCycleItems syncs every active company for shared payroll employees', async () => {
+    const payrollService = { getEmployeePayrollView: jest.fn() };
+    const employeeAccess = { assertEmployeeReadable: jest.fn() };
+    const salaryVisibility = { assertCanViewSalary: jest.fn() };
+    const payrollBuilder = {
+      syncEmployeeInOpenCycles: jest.fn()
+        .mockResolvedValueOnce({ cyclesSynced: 1, warnings: ['w1'] })
+        .mockResolvedValueOnce({ cyclesSynced: 2, warnings: [] }),
+    };
+    const sharedPayroll = {
+      getEmployeeInfo: jest.fn().mockResolvedValue({ mode: 'shared_across_companies' }),
+      listActiveCompanyIds: jest.fn().mockResolvedValue(['co-1', 'co-2']),
+    };
+    const service = new EmployeePayrollService(
+      payrollService as unknown as PayrollService,
+      employeeAccess as never,
+      salaryVisibility as never,
+      payrollBuilder as unknown as PayrollBuilderService,
+      sharedPayroll as unknown as SharedPayrollService,
+    );
+
+    const result = await service.syncOpenCycleItems(actor, 'emp-1', 'co-1');
+    expect(payrollBuilder.syncEmployeeInOpenCycles).toHaveBeenCalledWith(actor, 'emp-1', 'co-1');
+    expect(payrollBuilder.syncEmployeeInOpenCycles).toHaveBeenCalledWith(actor, 'emp-1', 'co-2');
+    expect(result).toEqual({ cyclesSynced: 3, warnings: ['w1'] });
   });
 });

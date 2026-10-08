@@ -232,9 +232,12 @@ describe('EmployeeLeaveService', () => {
       where: { leaveTypeId: string; periodStart: Date };
     }) => {
       const periodStart = where.periodStart.toISOString().slice(0, 10);
+      // create() receives periodStart as a Date; String(Date) is not ISO, so normalise it.
       return stored.find((row) => (
         row.leaveTypeId === where.leaveTypeId
-        && String(row.periodStart).slice(0, 10) === periodStart
+        && (row.periodStart instanceof Date
+          ? row.periodStart.toISOString()
+          : String(row.periodStart)).slice(0, 10) === periodStart
       )) ?? null;
     });
 

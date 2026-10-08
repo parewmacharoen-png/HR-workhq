@@ -6,9 +6,13 @@ describe('CompensationReviewTelegramNotifier (unit)', () => {
     businessRoleAssignment: { findMany: jest.fn().mockResolvedValue([]) },
     telegramAccount: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
     user: { findFirst: jest.fn().mockResolvedValue(null) },
+    company: { findFirst: jest.fn().mockResolvedValue(null) },
   };
 
-  const approvalNotifier = { notifyPendingApproval: jest.fn() };
+  const approvalNotifier = {
+    notifyPendingApproval: jest.fn(),
+    notifyCustomApproval: jest.fn().mockResolvedValue(undefined),
+  };
   const notifier = new CompensationReviewTelegramNotifier(prisma as never, gateway as never, approvalNotifier as never);
 
   beforeEach(() => {
@@ -23,9 +27,7 @@ describe('CompensationReviewTelegramNotifier (unit)', () => {
       id: 'owner-1',
       scopeGrants: [{ scopeType: 'all', companyId: null }],
     });
-    prisma.telegramAccount.findMany.mockResolvedValue([
-      { id: 'tg-1', chatId: BigInt(123), userId: 'owner-1' },
-    ]);
+    prisma.company.findFirst.mockResolvedValue({ name: 'SB Company' });
 
     await notifier.notifySalarySubmitted({
       id: 'rev-1',
@@ -48,12 +50,20 @@ describe('CompensationReviewTelegramNotifier (unit)', () => {
       createdAt: '2026-06-01',
     });
 
-    expect(gateway.sendMessage).toHaveBeenCalledWith(
+    // Salary submissions are routed through the shared custom-approval flow
+    // (inline approve/reject buttons) rather than a plain notice message.
+    expect(approvalNotifier.notifyCustomApproval).toHaveBeenCalledWith(
       expect.objectContaining({
-        chatId: 123,
-        messageType: 'compensation_review_notice',
-        text: expect.stringContaining('ส่งอนุมัติปรับเงินเดือน'),
+        reviewType: 'salary_review',
+        reviewId: 'rev-1',
+        approverUserIds: ['owner-1'],
+        display: expect.objectContaining({
+          requestTypeLabel: 'อนุมัติปรับเงินเดือน',
+          requesterName: 'Test User',
+          companyName: 'SB Company',
+        }),
       }),
     );
+    expect(gateway.sendMessage).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,14 @@ describe('AbsenceAutoWaiveService', () => {
     dates as never,
   );
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // clearAllMocks keeps per-test mockResolvedValue overrides, so reset the
+    // evidence lookups to "no check-in / no pending correction" for each test.
+    prisma.attendanceRecord.findFirst.mockResolvedValue(null);
+    prisma.attendanceCorrection.findFirst.mockResolvedValue(null);
+    prisma.requestInstance.findMany.mockResolvedValue([]);
+  });
 
   it('waives flagged absence when employee checked in', async () => {
     const waive = jest.fn();

@@ -40,6 +40,8 @@ describe('FinalSettlementService', () => {
     notifyPaid: jest.fn().mockResolvedValue(undefined),
   };
 
+  const dates = { now: jest.fn(() => new Date('2026-06-24T03:00:00.000Z')) };
+
   let service: FinalSettlementService;
 
   beforeEach(() => {
@@ -51,6 +53,7 @@ describe('FinalSettlementService', () => {
       calculator as never,
       access as never,
       checklist as never,
+      dates as never,
       telegram as never,
     );
   });

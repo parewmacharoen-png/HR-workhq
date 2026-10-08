@@ -27,13 +27,13 @@ describe('EmployeeProfileAccessService', () => {
     await expect(service.assertOwnerOrSecretary(
       { userId: 'u1', companyId: 'company-1', impersonatorUserId: null },
       'emp-1',
-    )).rejects.toThrow(/Only Owner or Secretary/);
+    )).rejects.toThrow(/เฉพาะ Owner หรือ Secretary/);
   });
 
   it('requires owner for access edit', async () => {
     permissions.findUserAccess.mockResolvedValue({ businessRole: 'secretary', overrides: [] });
     await expect(service.assertOwner(
       { userId: 'u1', companyId: 'company-1', impersonatorUserId: null },
-    )).rejects.toThrow(/Owner permission required/);
+    )).rejects.toThrow(/ต้องเป็น Owner/);
   });
 });

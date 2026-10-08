@@ -24,6 +24,10 @@ const tsJestOptions = {
     strictNullChecks: true,
     noImplicitAny: true,
     skipLibCheck: true,
+    // Transpile each file on its own instead of type-checking the whole program in
+    // every worker — the full type-check ran CI (and local machines) out of memory.
+    // Type errors are still caught by `tsc` in the Build / Typecheck CI jobs.
+    isolatedModules: true,
   },
 };
 

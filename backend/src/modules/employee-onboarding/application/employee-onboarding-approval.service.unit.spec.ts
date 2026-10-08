@@ -19,6 +19,14 @@ describe('EmployeeOnboardingApprovalService', () => {
         findUnique: jest.fn().mockResolvedValue(overrides.invite ?? null),
         findFirst: jest.fn().mockResolvedValue(overrides.invite ?? null),
       },
+      // processApproved clears any lingering Telegram onboarding session, even
+      // on the already-approved short-circuit path.
+      telegramAccount: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      telegramSession: {
+        updateMany: jest.fn(),
+      },
       $transaction: jest.fn(async (fn: (tx: unknown) => Promise<void>) => fn({})),
     };
 

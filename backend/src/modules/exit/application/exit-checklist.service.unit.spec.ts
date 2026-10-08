@@ -15,11 +15,13 @@ describe('ExitChecklistService', () => {
     },
   };
 
+  const dates = { now: jest.fn(() => new Date('2026-06-23T03:00:00.000Z')) };
+
   let service: ExitChecklistService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new ExitChecklistService(prisma as never);
+    service = new ExitChecklistService(prisma as never, dates as never);
   });
 
   it('seeds default checklist items', async () => {

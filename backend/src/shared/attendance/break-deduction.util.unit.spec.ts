@@ -1,5 +1,5 @@
-import { computeBreakDeduction } from '../../../shared/attendance/break-deduction.util';
-import { DEFAULT_ATTENDANCE_RULES } from '../../../settings/domain/attendance-settings.types';
+import { computeBreakDeduction } from './break-deduction.util';
+import { DEFAULT_ATTENDANCE_RULES } from '../../modules/settings/domain/attendance-settings.types';
 
 describe('break-deduction.util', () => {
   const hourlyRate = 50;

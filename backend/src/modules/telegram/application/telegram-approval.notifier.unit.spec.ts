@@ -98,6 +98,8 @@ describe('TelegramApprovalNotifier (unit)', () => {
         text: expect.stringContaining('ไม่อนุมัติ'),
       }),
     );
+  });
+
   it('edits custom approval message after resolve', async () => {
     prisma.salaryReview.findFirst.mockResolvedValue({
       employeeId: 'emp-1',

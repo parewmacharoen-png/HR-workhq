@@ -47,7 +47,10 @@ describe('PayrollService employee view', () => {
       }),
     };
     const prisma = {
-      company: { findFirst: jest.fn().mockResolvedValue({ name: 'Acme' }) },
+      company: {
+        findFirst: jest.fn().mockResolvedValue({ name: 'Acme' }),
+        count: jest.fn().mockResolvedValue(5),
+      },
       employee: { findFirst: jest.fn().mockResolvedValue({ hireDate: new Date('2020-01-15') }) },
       salaryHistory: { findFirst: jest.fn().mockResolvedValue({ monthlySalary: 35000, effectiveFrom: new Date('2024-01-01') }) },
       payrollCycle: {
@@ -89,6 +92,9 @@ describe('PayrollService employee view', () => {
     expect(salaryVisibility.assertCanViewSalary).toHaveBeenCalledWith('u-1', 'emp-1');
     expect(result.summary.currentSalary).toBe(35000);
     expect(result.summary.latestNetPay).toBe(32800);
+    expect(result.summary.activeCompanyCount).toBe(5);
+    expect(result.summary.payrollAllocationMode).toBe('standard');
+    expect(result.summary.perCompanySalary).toBeNull();
     expect(result.history).toHaveLength(1);
     expect(result.history[0].grossPay).toBe(34300);
     expect(result.history[0].baseSalary).toBe(30000);

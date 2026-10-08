@@ -90,8 +90,9 @@ describe('EmployeeTimelineService', () => {
     });
 
     const result = await service.getTimeline(actor, 'emp-1');
-    expect(result.items[0].description).toContain('****');
+    expect(result.items[0].description).toContain('1234-XXXX-XXXX-123');
     expect(result.items[0].description).not.toContain('1234567890123');
+    expect(result.items[0].description).not.toContain('567890');
   });
 
   it('skips wrapper audit actions duplicated by change history', async () => {
