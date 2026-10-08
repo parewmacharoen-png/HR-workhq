@@ -2,7 +2,8 @@
 // auth/auth.service.ts
 // Minimal credential validation + token issuance. Password hashing uses bcrypt.
 // User lookup goes through Prisma directly (auth is cross-cutting, not a domain
-// aggregate). Account lockout / refresh-token rotation are out of scope here.
+// aggregate). Sessions are kept alive by re-issuing the access token (refresh());
+// account lockout / refresh-token rotation are out of scope here.
 // ============================================================================
 
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
@@ -11,7 +12,7 @@ import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../shared/prisma/prisma.service';
 import { AppConfigService } from '../config/app-config.service';
-import { JwtPayload } from './jwt.types';
+import { AuthenticatedUser, JwtPayload } from './jwt.types';
 import {
   AUTH_CONTEXT_REPOSITORY,
   AuthContextRepository,
@@ -215,6 +216,31 @@ export class AuthService {
       select: { companyId: true },
     });
     return assignment?.companyId ?? null;
+  }
+
+  /**
+   * Re-issues a fresh token for an already signed-in user, so the web app can keep
+   * a session alive while it is in use instead of logging people out when it expires.
+   * The JWT strategy has already checked the account is still active.
+   */
+  async refresh(user: AuthenticatedUser): Promise<LoginResult> {
+    const payload: JwtPayload = {
+      sub: user.id,
+      username: user.username,
+      userType: user.userType,
+      impersonatorUserId: user.impersonatorUserId,
+      companyId: user.companyId,
+    };
+    const accessToken = await this.jwt.signAsync(payload, {
+      secret: this.config.jwtSecret,
+      expiresIn: this.config.jwtAccessTtl,
+    });
+    return {
+      accessToken,
+      tokenType: 'Bearer',
+      expiresIn: this.config.jwtAccessTtl,
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 
   /** Issues an impersonation token (effective = target, real = actor). */

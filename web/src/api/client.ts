@@ -260,6 +260,12 @@ export async function login(username: string, password: string): Promise<LoginRe
   }
 }
 
+/** Swaps the current token for a fresh one so an active session does not expire. */
+export async function refreshSession(): Promise<void> {
+  const result = await apiPost<LoginResponse>('/auth/refresh');
+  if (result?.accessToken) setToken(result.accessToken);
+}
+
 export async function fetchMe(): Promise<MeResponse> {
   return apiGet<MeResponse>('/auth/me');
 }
