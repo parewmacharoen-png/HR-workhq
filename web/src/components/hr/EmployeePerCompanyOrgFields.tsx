@@ -56,6 +56,9 @@ export function EmployeePerCompanyOrgFields({
   const [teamsByCompany, setTeamsByCompany] = useState<Record<string, Array<{ id: string; name: string }>>>({});
   // Extra teams may sit in another department, so they are picked from every team in the company.
   const [allTeamsByCompany, setAllTeamsByCompany] = useState<Record<string, Array<{ id: string; name: string }>>>({});
+  // Companies whose team list failed to load — shown as an error, not as "no teams".
+  const [teamLoadErrors, setTeamLoadErrors] = useState<Record<string, boolean>>({});
+  const [reloadCount, setReloadCount] = useState(0);
   const companyIdsKey = companyIds.join(',');
   const orgKey = companyIds.map((cid) => `${cid}:${value[cid]?.department ?? ''}`).join('|');
 
@@ -64,8 +67,11 @@ export function EmployeePerCompanyOrgFields({
     void Promise.all(
       companyIds.map(async (cid) => {
         const dept = value[cid]?.department;
-        const rows = await fetchCompanyTeams(cid, dept || undefined).catch(() => []);
-        return { cid, rows };
+        try {
+          return { cid, rows: await fetchCompanyTeams(cid, dept || undefined), failed: false };
+        } catch {
+          return { cid, rows: [], failed: true };
+        }
       }),
     ).then((results) => {
       setTeamsByCompany((prev) => {
@@ -73,8 +79,13 @@ export function EmployeePerCompanyOrgFields({
         for (const row of results) next[row.cid] = row.rows;
         return next;
       });
+      setTeamLoadErrors((prev) => {
+        const next = { ...prev };
+        for (const row of results) next[row.cid] = row.failed;
+        return next;
+      });
     });
-  }, [companyIdsKey, orgKey, companyIds]);
+  }, [companyIdsKey, orgKey, companyIds, reloadCount]);
 
   useEffect(() => {
     if (!allowMultipleTeams || !companyIds.length) return;
@@ -110,6 +121,8 @@ export function EmployeePerCompanyOrgFields({
         const c = companies.find((row) => row.id === cid);
         const org = value[cid] ?? { department: '', teamId: '' };
         const teams = teamsByCompany[cid] ?? [];
+        const teamsLoading = teamsByCompany[cid] === undefined;
+        const teamLoadFailed = teamLoadErrors[cid] === true;
         const extraTeamIds = org.extraTeamIds ?? [];
         const extraTeamOptions = (allTeamsByCompany[cid] ?? []).filter((team) => team.id !== org.teamId);
         return (
@@ -178,11 +191,23 @@ export function EmployeePerCompanyOrgFields({
                   onChange={(e) => onChange(cid, { teamId: e.target.value })}
                   disabled={teams.length === 0}
                 >
-                  <option value="">{teams.length === 0 ? '— ไม่มีทีมในบริษัทนี้ —' : NO_DATA}</option>
+                  <option value="">
+                    {teamsLoading ? '— กำลังโหลดทีม… —'
+                      : teamLoadFailed ? '— โหลดรายชื่อทีมไม่สำเร็จ —'
+                        : teams.length === 0 ? '— ไม่มีทีมในบริษัทนี้ —' : NO_DATA}
+                  </option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>{team.name}</option>
                   ))}
                 </WorkHQSelect>
+                {teamLoadFailed ? (
+                  <span className="whq-field-error" role="alert">
+                    โหลดรายชื่อทีมไม่สำเร็จ{' '}
+                    <WorkHQButton variant="ghost" type="button" onClick={() => setReloadCount((n) => n + 1)}>
+                      ลองใหม่
+                    </WorkHQButton>
+                  </span>
+                ) : null}
               </WorkHQField>
             </div>
             {allowMultipleTeams && org.teamId && extraTeamOptions.length > 0 ? (
