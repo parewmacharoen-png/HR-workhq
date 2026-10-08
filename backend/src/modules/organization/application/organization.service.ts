@@ -138,6 +138,12 @@ export class OrganizationService {
       await ensureMarketingTeamsForCompany(this.prisma, companyId);
     }
     let list = await this.teams.listByCompany(companyId);
+    if (list.length === 0 && companyId) {
+      // A company with no teams at all (e.g. the startup bootstrap failed) would leave the
+      // team picker empty, so create the default Team 1..N on first use.
+      await ensureMarketingTeamsForCompany(this.prisma, companyId);
+      list = await this.teams.listByCompany(companyId);
+    }
     if (department && isMarketingDepartment(department)) {
       list = list.filter((t) => /^Team \d+$/i.test(t.name.trim()));
     }
