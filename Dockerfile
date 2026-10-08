@@ -55,6 +55,9 @@ RUN npm ci --omit=dev --ignore-scripts
 COPY --from=builder /workhq/backend/dist ./dist
 COPY --from=builder /workhq/backend/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /workhq/backend/node_modules/@prisma ./node_modules/@prisma
+# Prisma CLI so the host can run `prisma migrate deploy` from this image before start
+# (Railway pre-deploy command). It is a devDependency, so `npm ci --omit=dev` skips it.
+COPY --from=builder /workhq/backend/node_modules/prisma ./node_modules/prisma
 COPY prisma /workhq/prisma
 
 RUN mkdir -p /var/workhq/storage/documents \
