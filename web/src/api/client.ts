@@ -128,10 +128,14 @@ async function parseJsonResponse<T>(res: Response): Promise<T> {
   }
 }
 
+/** Reads give up sooner; saves get longer because the server keeps working after we stop waiting. */
+const READ_TIMEOUT_MS = 25_000;
+const WRITE_TIMEOUT_MS = 90_000;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+  const timeoutId = window.setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       ...init,
@@ -146,7 +150,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return parseJsonResponse<T>(res);
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new ApiError('เซิร์ฟเวอร์ตอบช้าหรือยังไม่พร้อม (API อาจกำลังตื่นจากโหมด sleep)', 504);
+      throw new ApiError(
+        'เซิร์ฟเวอร์ตอบช้าเกินไป ข้อมูลอาจบันทึกไปแล้ว กรุณาตรวจสอบในรายการก่อนกดบันทึกซ้ำ',
+        504,
+      );
     }
     throw err;
   } finally {
@@ -169,7 +176,7 @@ export async function apiGet<T>(path: string, params?: Record<string, string | u
     });
   }
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+  const timeoutId = window.setTimeout(() => controller.abort(), READ_TIMEOUT_MS);
   try {
     const res = await fetch(url.toString(), { headers: authHeaders(), signal: controller.signal });
     if (res.status === 401) {
@@ -240,7 +247,7 @@ export async function apiDeleteWithBody<T>(path: string, body: unknown): Promise
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+  const timeoutId = window.setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
