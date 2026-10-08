@@ -17,6 +17,7 @@ import { WorkHQButton, WorkHQCard, WorkHQField, WorkHQInput } from '../../ui';
 import { WorkHQDateInput } from '../../ui/WorkHQDateInput';
 import { formatEmployeeDateDdMmYyyy } from '../../../i18n/employee-dates';
 import { EmployeeIdentityDocuments } from './EmployeeIdentityDocuments';
+import { useInvalidFields } from '../../../hooks/useInvalidFields';
 
 interface PersonalFormState {
   firstName: string;
@@ -60,6 +61,7 @@ function FieldInput({
   onChange,
   type = 'text',
   disabled = false,
+  onValidityChange,
 }: {
   label: string;
   value: string;
@@ -67,6 +69,7 @@ function FieldInput({
   onChange: (value: string) => void;
   type?: string;
   disabled?: boolean;
+  onValidityChange?: (valid: boolean) => void;
 }) {
   if (!editing) {
     const display = type === 'date' && value ? formatEmployeeDateDdMmYyyy(value) : value;
@@ -75,7 +78,12 @@ function FieldInput({
   if (type === 'date') {
     return (
       <WorkHQField label={label}>
-        <WorkHQDateInput value={value} disabled={disabled} onChange={onChange} />
+        <WorkHQDateInput
+          value={value}
+          disabled={disabled}
+          onChange={onChange}
+          onValidityChange={onValidityChange}
+        />
       </WorkHQField>
     );
   }
@@ -108,6 +116,7 @@ export function EmployeePersonalTab({ employeeId, canEdit, onReload }: EmployeeP
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { hasInvalid: hasInvalidDate, report: reportDateValidity } = useInvalidFields();
   const [error, setError] = useState<unknown>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -228,7 +237,7 @@ export function EmployeePersonalTab({ employeeId, canEdit, onReload }: EmployeeP
             )}
             {canEdit && editing && (
               <>
-                <WorkHQButton type="button" variant="primary" disabled={saving} data-testid="personal-save-button" onClick={() => void savePersonal()}>
+                <WorkHQButton type="button" variant="primary" disabled={saving || hasInvalidDate} data-testid="personal-save-button" onClick={() => void savePersonal()}>
                   บันทึก
                 </WorkHQButton>
                 <WorkHQButton type="button" variant="secondary" disabled={saving} data-testid="personal-cancel-button" onClick={cancelEdit}>
@@ -244,7 +253,7 @@ export function EmployeePersonalTab({ employeeId, canEdit, onReload }: EmployeeP
               <FieldInput label="ชื่อ" value={form.firstName} editing={editing} onChange={(v) => updateField('firstName', v)} />
               <FieldInput label="นามสกุล" value={form.lastName} editing={editing} onChange={(v) => updateField('lastName', v)} />
               <FieldInput label="ชื่อเล่น" value={form.nickname} editing={editing} onChange={(v) => updateField('nickname', v)} />
-              <FieldInput label="วันเกิด" value={form.dateOfBirth} editing={editing} type="date" onChange={(v) => updateField('dateOfBirth', v)} />
+              <FieldInput label="วันเกิด" value={form.dateOfBirth} editing={editing} type="date" onValidityChange={(ok) => reportDateValidity('วันเกิด', ok)} onChange={(v) => updateField('dateOfBirth', v)} />
               <FieldInput label="เพศ" value={form.gender} editing={editing} onChange={(v) => updateField('gender', v)} />
             </div>
           </WorkHQCard>

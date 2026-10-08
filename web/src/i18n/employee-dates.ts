@@ -6,7 +6,8 @@ export function formatEmployeeDateDdMmYyyy(isoDate: string | null | undefined): 
   if (!isoDate) return '—';
   const [year, month, day] = isoDate.slice(0, 10).split('-');
   if (!year || !month || !day) return '—';
-  return `${day}/${month}/${year}`;
+  // Buddhist year (พ.ศ.), the same as the date inputs.
+  return `${day}/${month}/${Number(year) + 543}`;
 }
 
 export function formatEmployeeDateThaiLong(isoDate: string | null | undefined): string {

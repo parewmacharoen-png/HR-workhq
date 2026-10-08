@@ -318,6 +318,16 @@ a:hover { text-decoration: underline; }
   box-shadow: 0 0 0 3px var(--whq-primary-subtle);
 }
 
+.whq-input[aria-invalid="true"] {
+  border-color: var(--whq-danger-text);
+}
+.whq-field-error {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--whq-danger-text);
+}
+
 .whq-password-field {
   display: flex;
   flex-direction: column;

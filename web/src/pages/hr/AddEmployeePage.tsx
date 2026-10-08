@@ -4,6 +4,7 @@ import { apiGet, ApiError, fetchCompanies, type CompanyOption } from '../../api/
 import { onboardEmployee } from '../../api/employees';
 import { useCompanyId } from '../../context/AuthContext';
 import { useCanAddEmployee } from '../../hooks/useEmployeePermissions';
+import { useInvalidFields } from '../../hooks/useInvalidFields';
 import { BusinessRoleScopeFields } from '../../components/hr/BusinessRoleScopeFields';
 import {
   EmployeePerCompanyOrgFields,
@@ -56,6 +57,7 @@ export default function AddEmployeePage() {
   const [teams, setTeams] = useState<TeamOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { hasInvalid: hasInvalidDate, report: reportDateValidity } = useInvalidFields();
   const [error, setError] = useState('');
 
   const [firstName, setFirstName] = useState('');
@@ -131,7 +133,13 @@ export default function AddEmployeePage() {
   const companyRows: CompanyRowsEditor = {
     onAddCompany() {
       const next = companies.find((c) => !activeCompanyIds.includes(c.id));
-      if (next) setAdditionalCompanyIds((prev) => [...prev, next.id]);
+      if (!next) return;
+      setAdditionalCompanyIds((prev) => [...prev, next.id]);
+      // Most people work in the same department everywhere, so start from the primary row's.
+      setCompanyOrgById((prev) => ({
+        ...prev,
+        [next.id]: { department: prev[companyId]?.department ?? '', teamId: '', extraTeamIds: [] },
+      }));
     },
     onChangeCompany(fromId, toId) {
       if (!toId || fromId === toId) return;
@@ -297,7 +305,12 @@ export default function AddEmployeePage() {
               <WorkHQInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </WorkHQField>
             <WorkHQField label={th.addEmployee.dateOfBirth}>
-              <WorkHQDateInput value={dateOfBirth} onChange={setDateOfBirth} />
+              <WorkHQDateInput
+                value={dateOfBirth}
+                onChange={setDateOfBirth}
+                maxIso={new Date().toISOString().slice(0, 10)}
+                onValidityChange={(ok) => reportDateValidity('dateOfBirth', ok)}
+              />
             </WorkHQField>
           </div>
         </WorkHQCard>
@@ -305,7 +318,12 @@ export default function AddEmployeePage() {
         <WorkHQCard title={th.addEmployee.employmentInfo}>
           <div className="whq-form-row">
             <WorkHQField label={th.addEmployee.startDate}>
-              <WorkHQDateInput required value={startDate} onChange={setStartDate} />
+              <WorkHQDateInput
+                required
+                value={startDate}
+                onChange={setStartDate}
+                onValidityChange={(ok) => reportDateValidity('startDate', ok)}
+              />
             </WorkHQField>
           </div>
 
@@ -412,7 +430,7 @@ export default function AddEmployeePage() {
 
         <div className="whq-form-actions whq-form-actions--end">
           <WorkHQButton to="/hr/employees" variant="secondary">{th.addEmployee.cancel}</WorkHQButton>
-          <WorkHQButton type="submit" variant="primary" disabled={saving || !companyId}>
+          <WorkHQButton type="submit" variant="primary" disabled={saving || !companyId || hasInvalidDate}>
             {saving ? th.addEmployee.submitting : th.addEmployee.submit}
           </WorkHQButton>
         </div>

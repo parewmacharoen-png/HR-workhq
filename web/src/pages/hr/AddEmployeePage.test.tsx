@@ -80,8 +80,13 @@ describe('AddEmployeePage company rows', () => {
     await screen.findByText('+ เพิ่มบริษัท');
     expect(companySelects()).toHaveLength(1);
     expect(companySelects()[0].value).toBe('co-kw');
+    // no team can be picked until the department is chosen
+    expect(teamSelects()[0]).toBeDisabled();
+    fireEvent.change(screen.getAllByLabelText('แผนก')[0], { target: { value: 'Marketing' } });
 
     fireEvent.click(screen.getByText('+ เพิ่มบริษัท'));
+    // the new row starts with the primary row's department
+    expect((screen.getAllByLabelText('แผนก')[1] as HTMLSelectElement).value).toBe('Marketing');
     expect(companySelects()).toHaveLength(2);
     // the new row starts on a company not used yet, and lists no company twice
     expect(companySelects()[1].value).toBe('co-sb');
@@ -103,8 +108,8 @@ describe('AddEmployeePage company rows', () => {
     expect(payload.companyId).toBe('co-kw');
     expect(payload.additionalCompanyIds).toEqual(['co-sb']);
     expect(payload.companyAssignments).toEqual([
-      { companyId: 'co-kw', department: undefined, teamId: 'kw-t1', extraTeamIds: undefined },
-      { companyId: 'co-sb', department: undefined, teamId: 'sb-t3', extraTeamIds: undefined },
+      { companyId: 'co-kw', department: 'Marketing', teamId: 'kw-t1', extraTeamIds: undefined },
+      { companyId: 'co-sb', department: 'Marketing', teamId: 'sb-t3', extraTeamIds: undefined },
     ]);
   });
 

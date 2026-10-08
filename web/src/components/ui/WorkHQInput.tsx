@@ -1,6 +1,8 @@
-import type { InputHTMLAttributes } from 'react';
+import { forwardRef, type InputHTMLAttributes } from 'react';
 
-export function WorkHQInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  const { className = '', ...rest } = props;
-  return <input className={`whq-input ${className}`.trim()} {...rest} />;
-}
+export const WorkHQInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function WorkHQInput(props, ref) {
+    const { className = '', ...rest } = props;
+    return <input ref={ref} className={`whq-input ${className}`.trim()} {...rest} />;
+  },
+);
