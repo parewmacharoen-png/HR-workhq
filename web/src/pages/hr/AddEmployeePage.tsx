@@ -133,7 +133,13 @@ export default function AddEmployeePage() {
   const companyRows: CompanyRowsEditor = {
     onAddCompany() {
       const next = companies.find((c) => !activeCompanyIds.includes(c.id));
-      if (next) setAdditionalCompanyIds((prev) => [...prev, next.id]);
+      if (!next) return;
+      setAdditionalCompanyIds((prev) => [...prev, next.id]);
+      // Most people work in the same department everywhere, so start from the primary row's.
+      setCompanyOrgById((prev) => ({
+        ...prev,
+        [next.id]: { department: prev[companyId]?.department ?? '', teamId: '', extraTeamIds: [] },
+      }));
     },
     onChangeCompany(fromId, toId) {
       if (!toId || fromId === toId) return;

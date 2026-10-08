@@ -176,9 +176,13 @@ export function EmployeePerCompanyOrgFields({
                 <WorkHQSelect
                   value={org.teamId}
                   onChange={(e) => onChange(cid, { teamId: e.target.value })}
-                  disabled={teams.length === 0}
+                  disabled={teams.length === 0 || (companyRows && !org.department)}
                 >
-                  <option value="">{teams.length === 0 ? '— ไม่มีทีมในบริษัทนี้ —' : NO_DATA}</option>
+                  <option value="">
+                    {companyRows && !org.department
+                      ? '— เลือกแผนกก่อน —'
+                      : teams.length === 0 ? '— ไม่มีทีมในบริษัทนี้ —' : NO_DATA}
+                  </option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>{team.name}</option>
                   ))}
