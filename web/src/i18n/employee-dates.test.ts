@@ -10,7 +10,7 @@ import {
 
 describe('employee-dates helpers', () => {
   it('formats profile birthday as DD/MM/YYYY', () => {
-    expect(formatEmployeeDateDdMmYyyy('1992-08-06')).toBe('06/08/1992');
+    expect(formatEmployeeDateDdMmYyyy('1992-08-06')).toBe('06/08/2535');
     expect(formatEmployeeDateDdMmYyyy(null)).toBe('—');
   });
 

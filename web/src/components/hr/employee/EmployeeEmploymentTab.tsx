@@ -40,6 +40,7 @@ import {
   type CompanyOrgSelection,
   type CompanyRowsEditor,
 } from '../EmployeePerCompanyOrgFields';
+import { useInvalidFields } from '../../../hooks/useInvalidFields';
 
 const EMPLOYMENT_STATUSES = ['probation', 'active', 'suspended', 'terminated'] as const;
 const EMPLOYMENT_TYPES = ['permanent', 'full_time', 'probation', 'contract', 'part_time'] as const;
@@ -144,6 +145,7 @@ function FieldInput({
   onChange,
   type = 'text',
   disabled = false,
+  onValidityChange,
 }: {
   label: string;
   value: string;
@@ -151,6 +153,7 @@ function FieldInput({
   onChange: (value: string) => void;
   type?: string;
   disabled?: boolean;
+  onValidityChange?: (valid: boolean) => void;
 }) {
   if (!editing) {
     const display = type === 'date' && value ? formatEmployeeDateDdMmYyyy(value) : value;
@@ -159,7 +162,12 @@ function FieldInput({
   if (type === 'date') {
     return (
       <WorkHQField label={label}>
-        <WorkHQDateInput value={value} disabled={disabled} onChange={onChange} />
+        <WorkHQDateInput
+          value={value}
+          disabled={disabled}
+          onChange={onChange}
+          onValidityChange={onValidityChange}
+        />
       </WorkHQField>
     );
   }
@@ -196,6 +204,7 @@ export function EmployeeEmploymentTab({
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { hasInvalid: hasInvalidDate, report: reportDateValidity } = useInvalidFields();
   const [error, setError] = useState<unknown>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [supervisorOptions, setSupervisorOptions] = useState<Array<{ id: string; label: string }>>([]);
@@ -452,7 +461,7 @@ export function EmployeeEmploymentTab({
                   <WorkHQButton
                     type="button"
                     variant="primary"
-                    disabled={saving}
+                    disabled={saving || hasInvalidDate}
                     data-testid="employment-save-button"
                     onClick={() => void saveEmployment()}
                   >
@@ -543,14 +552,14 @@ export function EmployeeEmploymentTab({
                   label="วันเริ่มงาน"
                   value={form.joinDate}
                   editing={editing}
-                  type="date"
+                  type="date" onValidityChange={(ok) => reportDateValidity('วันเริ่มงาน', ok)}
                   onChange={(v) => updateField('joinDate', v)}
                 />
                 <FieldInput
                   label="วันสิ้นสุดทดลองงาน"
                   value={form.probationEndDate ?? ''}
                   editing={editing}
-                  type="date"
+                  type="date" onValidityChange={(ok) => reportDateValidity('วันสิ้นสุดทดลองงาน', ok)}
                   onChange={(v) => updateField('probationEndDate', v || null)}
                 />
                 <InfoRow
@@ -561,7 +570,7 @@ export function EmployeeEmploymentTab({
                   label="วันลาออก"
                   value={form.resignDate ?? ''}
                   editing={editing}
-                  type="date"
+                  type="date" onValidityChange={(ok) => reportDateValidity('วันลาออก', ok)}
                   onChange={(v) => updateField('resignDate', v || null)}
                 />
               </section>
