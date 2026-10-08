@@ -23,7 +23,8 @@ FROM nginx:1.27-alpine AS runner
 COPY web/nginx.conf.template /etc/nginx/templates/default.conf.template
 ENV PORT=80
 ENV API_UPSTREAM=http://api:3000
-ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM)$
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM|NGINX_LOCAL_RESOLVERS)$
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
