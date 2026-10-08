@@ -14,6 +14,11 @@ export interface RequestStore {
   actor: ActorContext | null;
   startedAt: number;
   workflowId?: string | null;
+  /**
+   * The acting user's permission context, loaded once per request. Services check
+   * access many times per request; each load is ~7 queries to the database.
+   */
+  actorAuthContext?: { userId: string; load: Promise<unknown> };
 }
 
 const storage = new AsyncLocalStorage<RequestStore>();

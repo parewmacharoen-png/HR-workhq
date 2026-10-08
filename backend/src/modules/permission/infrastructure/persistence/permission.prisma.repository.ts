@@ -12,12 +12,31 @@ import {
 import { DuplicateRoleAssignmentError } from '../../domain/errors/permission.errors';
 import { BUSINESS_ROLE_BUNDLES } from '../../domain/entities/business-role-bundles';
 import { BusinessRoleCode } from '../../domain/entities/business-role.types';
+import { RequestContext } from '../../../../common/context/request-context';
 
 @Injectable()
 export class PrismaAuthContextRepository implements AuthContextRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async loadForUser(userId: string): Promise<AuthorizationContext | null> {
+  /**
+   * The acting user's own context is cached for the rest of the request (other users
+   * are always read fresh, so changing someone else's role is seen at once).
+   */
+  loadForUser(userId: string): Promise<AuthorizationContext | null> {
+    const store = RequestContext.current();
+    if (!store?.actor || store.actor.userId !== userId) return this.loadFresh(userId);
+    const cached = store.actorAuthContext;
+    if (cached?.userId === userId) return cached.load as Promise<AuthorizationContext | null>;
+    const load = this.loadFresh(userId);
+    store.actorAuthContext = { userId, load };
+    // Don't keep a failed load around for later checks in the same request.
+    load.catch(() => {
+      if (store.actorAuthContext?.load === load) store.actorAuthContext = undefined;
+    });
+    return load;
+  }
+
+  private async loadFresh(userId: string): Promise<AuthorizationContext | null> {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
       include: {
