@@ -11,7 +11,7 @@ import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../shared/prisma/prisma.service';
 import { AppConfigService } from '../config/app-config.service';
-import { JwtPayload } from './jwt.types';
+import { AuthenticatedUser, JwtPayload } from './jwt.types';
 import {
   AUTH_CONTEXT_REPOSITORY,
   AuthContextRepository,
@@ -87,6 +87,30 @@ export class AuthService {
       userType: user.userType as JwtPayload['userType'],
       impersonatorUserId: null,
       companyId,
+    };
+    const accessToken = await this.jwt.signAsync(payload, {
+      secret: this.config.jwtSecret,
+      expiresIn: this.config.jwtAccessTtl,
+    });
+    return {
+      accessToken,
+      tokenType: 'Bearer',
+      expiresIn: this.config.jwtAccessTtl,
+      mustChangePassword: user.mustChangePassword,
+    };
+  }
+
+  /**
+   * Re-signs the caller's token with a new expiry. The JWT guard has already checked the
+   * signature, expiry and that the account is still active, so the claims are carried over.
+   */
+  async refreshToken(user: AuthenticatedUser): Promise<LoginResult> {
+    const payload: JwtPayload = {
+      sub: user.id,
+      username: user.username,
+      userType: user.userType as JwtPayload['userType'],
+      impersonatorUserId: user.impersonatorUserId,
+      companyId: user.companyId,
     };
     const accessToken = await this.jwt.signAsync(payload, {
       secret: this.config.jwtSecret,

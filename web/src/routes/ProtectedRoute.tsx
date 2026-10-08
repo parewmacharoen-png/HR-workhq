@@ -4,7 +4,7 @@ import { LoadingState } from '../components/LoadingState';
 
 export function ProtectedRoute() {
   const { user, loading } = useAuth();
-  if (loading) return <LoadingState label="Loading session…" />;
+  if (loading) return <LoadingState label="กำลังเชื่อมต่อระบบ… (ถ้าระบบเพิ่งอัปเดต อาจใช้เวลาสักครู่)" />;
   if (!user) return <Navigate to="/login" replace />;
   return <Outlet />;
 }

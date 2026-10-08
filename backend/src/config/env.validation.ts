@@ -33,7 +33,9 @@ export class EnvVars {
   JWT_SECRET!: string;
 
   @IsString()
-  JWT_ACCESS_TTL = '15m';
+  // Long enough that a closed laptop or a deploy doesn't log people out; open tabs
+  // also renew their token through POST /auth/refresh.
+  JWT_ACCESS_TTL = '12h';
 
   @IsString()
   JWT_REFRESH_TTL = '30d';

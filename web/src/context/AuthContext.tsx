@@ -7,8 +7,10 @@ import {
   getAuthToken,
   getCompanyId,
   login as apiLogin,
+  refreshAuthToken,
   setCompanyId,
   setToken,
+  tokenAgeSeconds,
   type CompanyOption,
   type MeResponse,
 } from '../api/client';
@@ -34,6 +36,27 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Renew the token once it is this old (it lives much longer — see JWT_ACCESS_TTL). */
+const REFRESH_AFTER_SECONDS = 10 * 60;
+const REFRESH_CHECK_MS = 5 * 60 * 1000;
+/** While the API restarts after a deploy (or wakes from sleep) keep retrying instead of logging out. */
+const ME_RETRY_DELAYS_MS = [2_000, 4_000, 8_000, 10_000, 15_000, 20_000, 30_000];
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+/** Loads /auth/me, retrying when the server is unreachable. Only a 401 means "logged out". */
+async function fetchMeWithRetry(): Promise<MeResponse> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fetchMe();
+    } catch (err) {
+      const unauthorized = err instanceof ApiError && err.status === 401;
+      if (unauthorized || attempt >= ME_RETRY_DELAYS_MS.length) throw err;
+      await wait(ME_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
@@ -49,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         return;
       }
-      const me = await fetchMe();
+      const me = await fetchMeWithRetry();
       setUser(me);
       const hasAllScope = userHasGlobalCompanyScope(me);
       let list: CompanyOption[] = [];
@@ -78,6 +101,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
+
+  // Keep the session alive while the app is open: renew the token every few minutes and
+  // when the tab comes back into view.
+  useEffect(() => {
+    if (!user) return;
+    const renewIfOld = () => {
+      const age = tokenAgeSeconds();
+      if (age !== null && age >= REFRESH_AFTER_SECONDS) void refreshAuthToken();
+    };
+    renewIfOld();
+    const timer = window.setInterval(renewIfOld, REFRESH_CHECK_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') renewIfOld();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (loading || !user || companyId) return;

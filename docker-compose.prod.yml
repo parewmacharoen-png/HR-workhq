@@ -79,7 +79,7 @@ services:
       LOG_LEVEL:    ${LOG_LEVEL:-warn}
       TRUST_PROXY_HOPS: 1
       JWT_SECRET:      ${JWT_SECRET:?JWT_SECRET must be set (64+ chars)}
-      JWT_ACCESS_TTL:  ${JWT_ACCESS_TTL:-15m}
+      JWT_ACCESS_TTL:  ${JWT_ACCESS_TTL:-12h}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
       METRICS_TOKEN:   ${METRICS_TOKEN:?METRICS_TOKEN must be set}
       TELEGRAM_BOT_TOKEN:      ${TELEGRAM_BOT_TOKEN:-}

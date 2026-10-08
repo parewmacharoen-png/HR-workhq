@@ -260,6 +260,36 @@ export async function login(username: string, password: string): Promise<LoginRe
   }
 }
 
+/** Seconds since the stored token was issued, or null when there is no readable token. */
+export function tokenAgeSeconds(token: string | null = getToken()): number | null {
+  if (!token) return null;
+  try {
+    const part = token.split('.')[1] ?? '';
+    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as { iat?: number };
+    return typeof payload.iat === 'number' ? Math.floor(Date.now() / 1000) - payload.iat : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Swaps the stored token for a fresh one so an open tab never times out.
+ * Failures are ignored here — a dead token is handled by the next normal request.
+ */
+export async function refreshAuthToken(): Promise<boolean> {
+  if (!getToken()) return false;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', headers: authHeaders() });
+    if (!res.ok) return false;
+    const body = await parseJsonResponse<LoginResponse>(res);
+    if (!body?.accessToken) return false;
+    setToken(body.accessToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchMe(): Promise<MeResponse> {
   return apiGet<MeResponse>('/auth/me');
 }

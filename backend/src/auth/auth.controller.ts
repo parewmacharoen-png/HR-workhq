@@ -37,6 +37,14 @@ export class AuthController {
     return this.auth.getMe(req.user.id, req.user.companyId);
   }
 
+  /** Issues a fresh token for a still-valid one, so an open tab never times out. */
+  @SkipPasswordChange()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post('refresh')
+  refresh(@Req() req: { user: AuthenticatedUser }) {
+    return this.auth.refreshToken(req.user);
+  }
+
   @SkipPasswordChange()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('change-password')
