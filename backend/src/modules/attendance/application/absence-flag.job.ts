@@ -64,6 +64,10 @@ export class AbsenceFlagJob {
       },
     });
 
+    const ownerCompany = await this.resolveOwnerCompanies(
+      [...new Set(assignments.map((a) => a.employeeId))],
+    );
+
     const seen = new Set<string>();
     for (const assignment of assignments) {
       if (seen.has(assignment.employeeId)) {
@@ -71,6 +75,14 @@ export class AbsenceFlagJob {
         continue;
       }
       seen.add(assignment.employeeId);
+
+      // attendance_records allows one live row per employee per day across all companies,
+      // so an employee in several companies is only flagged by the company that owns their day.
+      const owner = ownerCompany.get(assignment.employeeId);
+      if (owner && owner !== companyId) {
+        skippedCount += 1;
+        continue;
+      }
 
       const emp = assignment.employee;
       if (isOwnerPosition(emp.position)) {
@@ -186,6 +198,24 @@ export class AbsenceFlagJob {
       + `flagged=${flaggedCount} autoWaived=${autoWaivedCount} offDays=${offDayRecordedCount} skipped=${skippedCount}`,
     );
     return { flaggedCount, skippedCount, offDayRecordedCount, autoWaivedCount };
+  }
+
+  /** Primary company per employee, or the lowest company id when none is marked primary. */
+  private async resolveOwnerCompanies(employeeIds: string[]): Promise<Map<string, string>> {
+    const owners = new Map<string, string>();
+    if (employeeIds.length === 0) return owners;
+    const rows = await this.prisma.employeeAssignment.findMany({
+      where: { employeeId: { in: employeeIds }, effectiveTo: null, deletedAt: null },
+      select: { employeeId: true, companyId: true, isPrimaryCompany: true },
+    });
+    const primary = new Map<string, string>();
+    for (const row of rows) {
+      if (row.isPrimaryCompany && !primary.has(row.employeeId)) primary.set(row.employeeId, row.companyId);
+      const current = owners.get(row.employeeId);
+      if (!current || row.companyId < current) owners.set(row.employeeId, row.companyId);
+    }
+    for (const [employeeId, companyId] of primary) owners.set(employeeId, companyId);
+    return owners;
   }
 
   private bangkokMinutesSinceMidnight(asOf: Date): number {
