@@ -3,18 +3,7 @@ import { AbsenceFlagJob } from './absence-flag.job';
 describe('AbsenceFlagJob', () => {
   const prisma = {
     employeeAssignment: {
-      findMany: jest.fn().mockResolvedValue([
-        {
-          employeeId: 'emp-1',
-          employee: {
-            id: 'emp-1',
-            position: 'Staff',
-            employmentStatus: 'active',
-            hireDate: new Date('2020-01-01T00:00:00.000Z'),
-            terminationDate: null,
-          },
-        },
-      ]),
+      findMany: jest.fn(),
     },
     attendanceRecord: { findFirst: jest.fn().mockResolvedValue(null) },
   };
@@ -55,7 +44,26 @@ describe('AbsenceFlagJob', () => {
     absenceAutoWaive as never,
   );
 
-  beforeEach(() => jest.clearAllMocks());
+  const companyAssignments = [
+    {
+      employeeId: 'emp-1',
+      employee: {
+        id: 'emp-1',
+        position: 'Staff',
+        employmentStatus: 'active',
+        hireDate: new Date('2020-01-01T00:00:00.000Z'),
+        terminationDate: null,
+      },
+    },
+  ];
+  let ownership: Array<{ employeeId: string; companyId: string; isPrimaryCompany: boolean }>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    ownership = [{ employeeId: 'emp-1', companyId: 'co-1', isPrimaryCompany: true }];
+    prisma.employeeAssignment.findMany.mockImplementation((args: { select?: unknown }) =>
+      Promise.resolve(args.select ? ownership : companyAssignments));
+  });
 
   it('skips flagging before shift escalation window', async () => {
     const result = await job.runForCompany(
@@ -75,5 +83,22 @@ describe('AbsenceFlagJob', () => {
     );
     expect(result.flaggedCount).toBe(1);
     expect(absences.save).toHaveBeenCalled();
+  });
+
+  it('flags a multi-company employee only in their primary company', async () => {
+    ownership = [
+      { employeeId: 'emp-1', companyId: 'co-1', isPrimaryCompany: false },
+      { employeeId: 'emp-1', companyId: 'co-2', isPrimaryCompany: true },
+    ];
+    const workDate = new Date('2026-07-02T00:00:00.000Z');
+    const asOf = new Date('2026-07-02T03:30:00.000Z');
+
+    const other = await job.runForCompany('co-1', workDate, asOf);
+    expect(other.flaggedCount).toBe(0);
+    expect(ledger.recordOffDay).not.toHaveBeenCalled();
+    expect(absences.save).not.toHaveBeenCalled();
+
+    const owner = await job.runForCompany('co-2', workDate, asOf);
+    expect(owner.flaggedCount).toBe(1);
   });
 });
